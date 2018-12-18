@@ -131,10 +131,40 @@ function sqr(x)
 	return x * x
 end
 
+-- Priority Queue!
+
 -->8
 -- pathing
+
+map_graph = {}
+
 function path()
 end
+
+function generate_map_graph()
+	local graph = {}
+	for i=1,128 do
+		local node = {}
+		local pos = index_to_pos(i)
+		graph[i] = node
+	end
+end
+
+function index_to_pos(index)
+ local y = flr(index/16)
+ local x = index % 16
+ return {x = x,y = y}
+end
+function pos_to_index(pos)
+ return ((pos.x+1) * 16) + pos.y
+end
+
+printh("5 -> {5, 0}")
+pos1 = index_to_pos(5)
+printh(pos1.x)
+printh(pos1.y)
+
+
 __gfx__
 0044440000eeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 004f44000eefee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
