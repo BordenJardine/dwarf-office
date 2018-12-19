@@ -134,35 +134,85 @@ end
 -- Priority Queue!
 
 -->8
--- pathing
+
+-- Map Stuff
 
 map_graph = {}
+min_graph_index = 1
+max_graph_index = 16*16
+min_x = 0
+max_x = 16
+min_y = 0
+max_y = 16
+impassible = 0
 
-function path()
+function pos(x, y)
+	return {x=x, y=y}
 end
 
+function get_flag(pos, flag)
+	fget(mget(pos.x, pos.y), flag)
+end
+
+-- create a cached graph of the map. Each space on the map is indexed
 function generate_map_graph()
 	local graph = {}
-	for i=1,128 do
+	for i=min_graph_index,max_graph_index do
 		local node = {}
-		local pos = index_to_pos(i)
+		node.occupants = {}
+		node.pos = index_to_pos(i)
+		node.passible = not get_flag(node.pos, impassible)
+		if node.passible then
+			node.neighbors = get_valid_neighbors(node.pos)
+		end
 		graph[i] = node
 	end
+	return graph
 end
 
+--[[
+translate between map indexes and x,y coords
+for instance:
+	pos_to_index(pos(4, 0)) -- 4
+	pos_to_index(pos(1, 4)) -- 65
+	index_to_pos(255) -- 15, 16
+-- ]]
 function index_to_pos(index)
- local y = flr(index/16)
- local x = index % 16
- return {x = x,y = y}
-end
-function pos_to_index(pos)
- return ((pos.x+1) * 16) + pos.y
+	local y = flr(index/16)
+	local x = index % 16
+	return pos(x, y)
 end
 
-printh("5 -> {5, 0}")
-pos1 = index_to_pos(5)
-printh(pos1.x)
-printh(pos1.y)
+function pos_to_index(pos)
+	return ((pos.y) * 16) + pos.x
+end
+
+function get_valid_neighbors(pos)
+	local neighbors = {}
+	for xi=-1,1 do
+		for yi=-1,1 do
+			local neighbor_pos = pos(pos.x + xi,pos.y+xy)
+			if neighbor_pos.x >= min_x and neighbor_pos.x <= max_x and
+				 neighbor_pos.y >= min_y and neighbor_pos.y <= max_y and
+				 not get_flag(neighbor_pos, impassible)
+			then
+				add(neighbors, neighbor_pos)
+			end
+		end
+	end
+	return neighbors
+end
+
+-- translation tests
+--[[
+printh(pos_to_index(pos(4, 0))) -- should be 4
+printh(pos_to_index(pos(1, 4))) -- should be 65
+local pos = index_to_pos(5)
+printh(pos.x .. ' ' .. pos.y) -- should be 5, 0
+local pos2 = index_to_pos(254)
+printh(pos2.x .. ' ' .. pos2.y) -- should be 14, 15
+--]]
+
 
 
 __gfx__
