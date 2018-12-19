@@ -163,9 +163,7 @@ function generate_map_graph()
 		node.occupants = {}
 		node.pos = index_to_pos(i)
 		node.passible = not get_flag(node.pos, impassible)
-		if node.passible then
-			node.neighbors = get_valid_neighbors(node.pos)
-		end
+		node.neighbors = get_valid_neighbors(node)
 		graph[i] = node
 	end
 	return graph
@@ -188,8 +186,12 @@ function pos_to_index(pos)
 	return ((pos.y) * 16) + pos.x
 end
 
-function get_valid_neighbors(pos)
+function get_valid_neighbors(node)
 	local neighbors = {}
+	if not node.passible then
+		return neighbors
+	end
+	local pos = node.pos
 	for yi=-1,1 do
 		for xi=-1,1 do
 			local neighbor_pos = poz(pos.x + xi,pos.y+yi)
@@ -229,18 +231,35 @@ printh(pos2.x .. ' ' .. pos2.y) -- should be 14, 15
 --[[
 printh('--0,0--')
 -- expected: 1, 16, 17
-local n1 = get_valid_neighbors(poz(0,0))
+local n1 = get_valid_neighbors({pos = poz(0,0)})
 for n in all(n1) do
 	local posn = index_to_pos(n)
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 printh('--4,2--')
-local n2 = get_valid_neighbors(poz(4,2))
+local n2 = get_valid_neighbors({pos = poz(4,2)})
 for n in all(n2) do
 	local posn = index_to_pos(n)
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 --]]
+
+-- map_graph_tests
+graph = generate_map_graph()
+
+printh('--4,2--')
+node = graph[36]
+printh('passible: ' .. node.passible)
+
+printh('--3,2--')
+node = graph[35]
+printh('passible: ' .. node.passible)
+for n in all(node.neighbors) do
+	local posn = index_to_pos(n)
+	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
+end
+
+
 
 
 __gfx__
