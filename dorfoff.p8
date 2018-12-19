@@ -43,8 +43,8 @@ end
 -- game loop stuff
 function _init()
 	add(actors, worker.new({
-		x = 1,
-		y = 1,
+		x = 0,
+		y = 0,
 		sprite = 1
 	}))
 	add(actors, worker.new({
@@ -63,6 +63,7 @@ function _draw()
 	for a in all(actors) do
 		a:draw()
 	end
+	draw_indicies()
 end
 
 -->8
@@ -146,12 +147,12 @@ min_y = 0
 max_y = 16
 impassible = 0
 
-function pos(x, y)
+function poz(x, y)
 	return {x=x, y=y}
 end
 
 function get_flag(pos, flag)
-	fget(mget(pos.x, pos.y), flag)
+	return fget(mget(pos.x, pos.y), flag)
 end
 
 -- create a cached graph of the map. Each space on the map is indexed
@@ -173,14 +174,14 @@ end
 --[[
 translate between map indexes and x,y coords
 for instance:
-	pos_to_index(pos(4, 0)) -- 4
-	pos_to_index(pos(1, 4)) -- 65
+	pos_to_index(poz(4, 0)) -- 4
+	pos_to_index(poz(1, 4)) -- 65
 	index_to_pos(255) -- 15, 16
 -- ]]
 function index_to_pos(index)
 	local y = flr(index/16)
 	local x = index % 16
-	return pos(x, y)
+	return poz(x, y)
 end
 
 function pos_to_index(pos)
@@ -189,18 +190,28 @@ end
 
 function get_valid_neighbors(pos)
 	local neighbors = {}
-	for xi=-1,1 do
-		for yi=-1,1 do
-			local neighbor_pos = pos(pos.x + xi,pos.y+xy)
+	for yi=-1,1 do
+		for xi=-1,1 do
+			local neighbor_pos = poz(pos.x + xi,pos.y+yi)
+			-- not out of the play area, not the current pos, and passible tile
 			if neighbor_pos.x >= min_x and neighbor_pos.x <= max_x and
 				 neighbor_pos.y >= min_y and neighbor_pos.y <= max_y and
+				 not (neighbor_pos.x == pos.x and neighbor_pos.y == pos.y) and
 				 not get_flag(neighbor_pos, impassible)
 			then
-				add(neighbors, neighbor_pos)
+				add(neighbors, pos_to_index(neighbor_pos))
 			end
 		end
 	end
 	return neighbors
+end
+
+-- helper function that can eventually go away
+function draw_indicies()
+	for i=min_graph_index,max_graph_index do
+		local pos = index_to_pos(i)
+		print(i, pos.x * 8, pos.y * 8, 1)
+	end
 end
 
 -- translation tests
@@ -213,6 +224,23 @@ local pos2 = index_to_pos(254)
 printh(pos2.x .. ' ' .. pos2.y) -- should be 14, 15
 --]]
 
+
+-- get_valid_neighbors_tests
+--[[
+printh('--0,0--')
+-- expected: 1, 16, 17
+local n1 = get_valid_neighbors(poz(0,0))
+for n in all(n1) do
+	local posn = index_to_pos(n)
+	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
+end
+printh('--4,2--')
+local n2 = get_valid_neighbors(poz(4,2))
+for n in all(n2) do
+	local posn = index_to_pos(n)
+	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
+end
+--]]
 
 
 __gfx__
