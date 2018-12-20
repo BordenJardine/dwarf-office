@@ -18,10 +18,10 @@ walking = 1
 -- worker 'class'
 worker = {
 	player = 0,
-	x = 1,
-	y = 1,
+	tile = 0,
 	sprite = 1,
 	task = idle,
+	path = nil
 }
 
 function worker.new(settings)
@@ -32,8 +32,8 @@ end
 function worker:draw()
 	spr(
 		self.sprite,
-		self.x * 8,
-		self.y * 8
+		graph[self.tile].pos.x * 8,
+		graph[self.tile].pos.y * 8
 	)
 end
 
@@ -42,17 +42,18 @@ end
 
 -- game loop stuff
 function _init()
-	add(actors, worker.new({
-		x = 0,
-		y = 0,
+	a1 = worker.new({
+		tile = 1,
 		sprite = 1
-	}))
-	add(actors, worker.new({
-		x = 15,
-		y = 11,
+	})
+	a2 = worker.new({
+		tile = 90,
 		sprite = 0
-	}))
-	map_graph = generate_map_graph()
+	})
+	add(actors, a1)
+	add(actors, a2)
+	graph = generate_graph()
+	a1.path = path(a1.tile, a2.tile)
 end
 
 function _update()
@@ -65,6 +66,7 @@ function _draw()
 		a:draw()
 	end
 	draw_indicies()
+	draw_path(actors[1].path)
 end
 
 -->8
@@ -80,30 +82,6 @@ end
 
 function select(t)
 	return t[flr(rnd(#t))+1]
-end
-
--- printing
-
--- print string with outline.
-function printo(str, startx, starty, col, col_bg)
-	print(str,startx+1,starty,col_bg)
-	print(str,startx-1,starty,col_bg)
-	print(str,startx,starty+1,col_bg)
-	print(str,startx,starty-1,col_bg)
-	print(str,startx+1,starty-1,col_bg)
-	print(str,startx-1,starty-1,col_bg)
-	print(str,startx-1,starty+1,col_bg)
-	print(str,startx+1,starty+1,col_bg)
-	print(str,startx,starty,col)
-end
-
---print string centered with
---outline.
-function printc(str, x, y, col, col_bg, special_chars)
-	local len=(#str*4)+(special_chars*3)
-	local startx=x-(len/2)
-	local starty=y-2
-	printo(str,startx,starty,col,col_bg)
 end
 
 function copy(t) -- shallow-copy a table
@@ -123,10 +101,50 @@ function unshift(arr, val)
 	return tmp
 end
 
+-- insert into table and sort by priority
+function insert(t, val, p)
+	if #t >= 1 then
+		add(t, {})
+		for i=(#t),2,-1 do
+			local next = t[i-1]
+			if p < next[2] then
+				t[i] = {val, p}
+				return
+			else
+				t[i] = next
+			end
+		end
+		t[1] = {val, p}
+	else
+		add(t, {val, p})
+	end
+end
+
+-- pop the last element off a table
+function popEnd(t)
+	local top = t[#t]
+	del(t,t[#t])
+	return top[1]
+end
+
+function reverse(t)
+	for i=1,(#t/2) do
+		local temp = t[i]
+		local oppindex = #t-(i-1)
+		t[i] = t[oppindex]
+		t[oppindex] = temp
+	end
+end
+
 -- math
 
 function distance(p1, p2)
 	return sqrt(sqr(p1.x - p2.x) + sqr(p1.y - p2.y))
+end
+
+function manhattan_distance(p1, p2)
+	return abs(p1.x - p2.x) + abs(p1.y - p2.y)
+
 end
 
 function sqr(x)
@@ -139,16 +157,16 @@ end
 
 -- map stuff
 
-map_graph = {}
-min_graph_index = 1
+graph = {}
+min_graph_index = 0
 max_graph_index = 16*16
 min_x = 0
-max_x = 16
+max_x = 15
 min_y = 0
-max_y = 16
+max_y = 15
 impassible = 0
 
-function poz(x, y)
+function point(x, y)
 	return {x=x, y=y}
 end
 
@@ -157,7 +175,7 @@ function get_flag(pos, flag)
 end
 
 -- create a cached graph of the map. each space on the map is indexed
-function generate_map_graph()
+function generate_graph()
 	local graph = {}
 	for i=min_graph_index,max_graph_index do
 		local node = {}
@@ -174,14 +192,14 @@ end
 --[[
 translate between map indexes and x,y coords
 for instance:
-	pos_to_index(poz(4, 0)) -- 4
-	pos_to_index(poz(1, 4)) -- 65
+	pos_to_index(point(4, 0)) -- 4
+	pos_to_index(point(1, 4)) -- 65
 	index_to_pos(255) -- 15, 16
 -- ]]
 function index_to_pos(index)
 	local y = flr(index/16)
 	local x = index % 16
-	return poz(x, y)
+	return point(x, y)
 end
 
 function pos_to_index(pos)
@@ -196,13 +214,16 @@ function get_valid_neighbors(node)
 	local pos = node.pos
 	for yi=-1,1 do
 		for xi=-1,1 do
-			local neighbor_pos = poz(pos.x + xi,pos.y+yi)
-			-- not out of the play area, not the current pos, and passible tile
+			local neighbor_pos = point(pos.x + xi,pos.y+yi)
+			-- not out of the play area, not the current point, and passible tile
 			if neighbor_pos.x >= min_x and neighbor_pos.x <= max_x and
 				 neighbor_pos.y >= min_y and neighbor_pos.y <= max_y and
 				 not (neighbor_pos.x == pos.x and neighbor_pos.y == pos.y) and
 				 not get_flag(neighbor_pos, impassible)
 			then
+				if pos_to_index(neighbor_pos) > 255 then
+					printh('uh oh: '.. pos_to_index(neighbor_pos) .. ' ' .. neighbor_pos.x .. ',' .. neighbor_pos.y)
+				end
 				add(neighbors, pos_to_index(neighbor_pos))
 			end
 		end
@@ -210,19 +231,84 @@ function get_valid_neighbors(node)
 	return neighbors
 end
 
+function path(start, dest, prox)
+	local prox = prox or false
+
+	local frontier = {}
+	local came_from = {}
+	local cost_so_far = {}
+	insert(frontier, start, 0)
+	came_from[start] = nil
+	cost_so_far[start] = 0
+
+	while (#frontier > 0 and #frontier < 1000) do
+		local current = popEnd(frontier)
+
+		if close_enough(current, dest, prox) then
+			dest = current
+			break
+		end
+
+		local neighbors = graph[current].neighbors
+		for next in all(neighbors) do
+			local new_cost = cost_so_far[current] + 1
+
+			if (cost_so_far[next] == nil) or (new_cost < cost_so_far[next]) then
+				cost_so_far[next] = new_cost
+				if not graph[next] then
+				  printh('node not found: ' .. next)
+
+				end
+				local priority = new_cost + manhattan_distance(graph[dest].pos, graph[next].pos)
+				insert(frontier, next, priority)
+
+				came_from[next] = current
+			end
+		end
+	end
+
+	local current = came_from[dest]
+	local path = {}
+	while current != start do
+		add(path, current)
+		current = came_from[current]
+	end
+	reverse(path)
+	return path
+end
+
+-- a and b are expected to be points
+function close_enough(a, b, prox)
+	if prox then
+		return manhattan_distance(graph[a].pos, graph[b].pos) > 2
+	else
+		return a == b
+	end
+end
+
 -- helper function that can eventually go away
 function draw_indicies()
-	for node in all(map_graph) do
+	for node in all(graph) do
 		if node.passible then
 			print(node.index, node.pos.x * 8, node.pos.y * 8, 1)
 		end
 	end
 end
 
+function draw_path(p)
+	for i in all(p) do
+		spr(
+			15,
+			graph[i].pos.x * 8,
+			graph[i].pos.y * 8
+		)
+	end
+end
+
 -- translation tests
 --[[
-printh(pos_to_index(pos(4, 0))) -- should be 4
-printh(pos_to_index(pos(1, 4))) -- should be 65
+printh(pos_to_index(point(4, 0))) -- should be 4
+printh(pos_to_index(point(1, 4))) -- should be 65
 local pos = index_to_pos(5)
 printh(pos.x .. ' ' .. pos.y) -- should be 5, 0
 local pos2 = index_to_pos(254)
@@ -234,13 +320,13 @@ printh(pos2.x .. ' ' .. pos2.y) -- should be 14, 15
 --[[
 printh('--0,0--')
 -- expected: 1, 16, 17
-local n1 = get_valid_neighbors({pos = poz(0,0)})
+local n1 = get_valid_neighbors({pos = point(0,0)})
 for n in all(n1) do
 	local posn = index_to_pos(n)
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 printh('--4,2--')
-local n2 = get_valid_neighbors({pos = poz(4,2)})
+local n2 = get_valid_neighbors({pos = point(4,2)})
 for n in all(n2) do
 	local posn = index_to_pos(n)
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
@@ -271,8 +357,8 @@ __gfx__
 0044440000eeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 004f44000eefee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0f5ff5000fdffd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00ffff00eeffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-07772700077727000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00ffff00eeffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000028000
+0777270007772700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008e000
 07772700077727000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00555500005555000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00500500005005000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
