@@ -47,7 +47,7 @@ function _init()
 		sprite = 1
 	})
 	a2 = worker.new({
-		tile = 90,
+		tile = 191,
 		sprite = 0
 	})
 	add(actors, a1)
@@ -65,7 +65,7 @@ function _draw()
 	for a in all(actors) do
 		a:draw()
 	end
-	draw_indicies()
+	-- draw_indicies()
 	draw_path(actors[1].path)
 end
 
@@ -232,6 +232,9 @@ function get_valid_neighbors(node)
 end
 
 function path(start, dest, prox)
+	if not graph[dest] then
+		printh('ERROR node not found: ' .. dest)
+	end
 	local prox = prox or false
 
 	local frontier = {}
@@ -240,9 +243,12 @@ function path(start, dest, prox)
 	insert(frontier, start, 0)
 	came_from[start] = nil
 	cost_so_far[start] = 0
+	local tries = 0
 
 	while (#frontier > 0 and #frontier < 1000) do
 		local current = popEnd(frontier)
+
+		tries += 1
 
 		if close_enough(current, dest, prox) then
 			dest = current
@@ -250,14 +256,13 @@ function path(start, dest, prox)
 		end
 
 		local neighbors = graph[current].neighbors
+		local new_cost = cost_so_far[current] + 1
 		for next in all(neighbors) do
-			local new_cost = cost_so_far[current] + 1
-
+			printh('next ' .. next .. ' ' .. 'cost ' .. new_cost .. ' ' .. 'tries ' .. tries)
 			if (cost_so_far[next] == nil) or (new_cost < cost_so_far[next]) then
 				cost_so_far[next] = new_cost
 				if not graph[next] then
-				  printh('node not found: ' .. next)
-
+				  printh('ERROR node not found: ' .. next)
 				end
 				local priority = new_cost + manhattan_distance(graph[dest].pos, graph[next].pos)
 				insert(frontier, next, priority)
