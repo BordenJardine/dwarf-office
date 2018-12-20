@@ -52,6 +52,7 @@ function _init()
 		y = 11,
 		sprite = 0
 	}))
+	map_graph = generate_map_graph()
 end
 
 function _update()
@@ -136,7 +137,7 @@ end
 
 -->8
 
--- Map Stuff
+-- map stuff
 
 map_graph = {}
 min_graph_index = 1
@@ -155,12 +156,13 @@ function get_flag(pos, flag)
 	return fget(mget(pos.x, pos.y), flag)
 end
 
--- create a cached graph of the map. Each space on the map is indexed
+-- create a cached graph of the map. each space on the map is indexed
 function generate_map_graph()
 	local graph = {}
 	for i=min_graph_index,max_graph_index do
 		local node = {}
 		node.occupants = {}
+		node.index = i
 		node.pos = index_to_pos(i)
 		node.passible = not get_flag(node.pos, impassible)
 		node.neighbors = get_valid_neighbors(node)
@@ -210,9 +212,10 @@ end
 
 -- helper function that can eventually go away
 function draw_indicies()
-	for i=min_graph_index,max_graph_index do
-		local pos = index_to_pos(i)
-		print(i, pos.x * 8, pos.y * 8, 1)
+	for node in all(map_graph) do
+		if node.passible then
+			print(node.index, node.pos.x * 8, node.pos.y * 8, 1)
+		end
 	end
 end
 
@@ -245,6 +248,7 @@ end
 --]]
 
 -- map_graph_tests
+--[[
 graph = generate_map_graph()
 
 printh('--4,2--')
@@ -258,6 +262,7 @@ for n in all(node.neighbors) do
 	local posn = index_to_pos(n)
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
+--]]
 
 
 
