@@ -1,6 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
+-- main
 printh("\n\n-------\n-us sales operations-\n-------")
 
 -- constants
@@ -10,37 +11,6 @@ printh("\n\n-------\n-us sales operations-\n-------")
 -- game state
 actors = {} -- workers and stuff
 
--- status
-idle = 0
-walking = 1
-
-
--- worker 'class'
-worker = {
-	player = 0,
-	tile = 0,
-	sprite = 1,
-	task = idle,
-	path = nil
-}
-
-function worker.new(settings)
-	local w = setmetatable((settings or {}), { __index = worker })
-	return w
-end
-
-function worker:draw()
-	spr(
-		self.sprite,
-		graph[self.tile].pos.x * 8,
-		graph[self.tile].pos.y * 8
-	)
-end
-
-function worker:update()
-end
-
--- game loop stuff
 function _init()
 	a1 = worker.new({
 		tile = 1,
@@ -53,10 +23,13 @@ function _init()
 	add(actors, a1)
 	add(actors, a2)
 	graph = generate_graph()
-	a1.path = path(a1.tile, a2.tile)
+	a1:set_path(path(a1.tile, a2.tile, true))
 end
 
 function _update()
+	for a in all(actors) do
+		-- a:update()
+	end
 end
 
 function _draw()
@@ -121,10 +94,10 @@ function insert(t, val, p)
 end
 
 -- pop the last element off a table
-function popEnd(t)
+function popend(t)
 	local top = t[#t]
 	del(t,t[#t])
-	return top[1]
+	return top
 end
 
 function reverse(t)
@@ -138,23 +111,13 @@ end
 
 -- math
 
-function distance(p1, p2)
-	return sqrt(sqr(p1.x - p2.x) + sqr(p1.y - p2.y))
-end
-
 function manhattan_distance(p1, p2)
 	return abs(p1.x - p2.x) + abs(p1.y - p2.y)
-
 end
 
-function sqr(x)
-	return x * x
-end
-
--- Priority Queue!
+-- priority queue!
 
 -->8
-
 -- map stuff
 
 graph = {}
@@ -233,7 +196,7 @@ end
 
 function path(start, dest, prox)
 	if not graph[dest] then
-		printh('ERROR node not found: ' .. dest)
+		printh('error node not found: ' .. dest)
 	end
 	local prox = prox or false
 
@@ -243,12 +206,10 @@ function path(start, dest, prox)
 	insert(frontier, start, 0)
 	came_from[start] = nil
 	cost_so_far[start] = 0
-	local tries = 0
 
 	while (#frontier > 0 and #frontier < 1000) do
-		local current = popEnd(frontier)
-
-		tries += 1
+		local current = popend(frontier)[1]
+  printh(current)
 
 		if close_enough(current, dest, prox) then
 			dest = current
@@ -258,11 +219,10 @@ function path(start, dest, prox)
 		local neighbors = graph[current].neighbors
 		local new_cost = cost_so_far[current] + 1
 		for next in all(neighbors) do
-			printh('next ' .. next .. ' ' .. 'cost ' .. new_cost .. ' ' .. 'tries ' .. tries)
 			if (cost_so_far[next] == nil) or (new_cost < cost_so_far[next]) then
 				cost_so_far[next] = new_cost
 				if not graph[next] then
-				  printh('ERROR node not found: ' .. next)
+				  printh('error node not found: ' .. next)
 				end
 				local priority = new_cost + manhattan_distance(graph[dest].pos, graph[next].pos)
 				insert(frontier, next, priority)
@@ -278,7 +238,6 @@ function path(start, dest, prox)
 		add(path, current)
 		current = came_from[current]
 	end
-	reverse(path)
 	return path
 end
 
@@ -310,6 +269,71 @@ function draw_path(p)
 	end
 end
 
+-->8
+-- worker 'class'
+
+-- status
+idle = 0
+walking = 1
+
+default_step_time = 4
+
+worker = {
+	player = 0,
+	tile = 0,
+	sprite = 1,
+	task = idle,
+	path = nil,
+	path_index = 0,
+	step_timer = default_step_time,
+	max_step_time = default_step_time
+}
+
+function worker.new(settings)
+	local w = setmetatable((settings or {}), { __index = worker })
+	return w
+end
+
+function worker:draw()
+	spr(
+		self.sprite,
+		graph[self.tile].pos.x * 8,
+		graph[self.tile].pos.y * 8
+	)
+end
+
+function worker:update()
+	-- self:update_timer()
+	-- self:update_task()
+	-- self:move()
+end
+
+function worker:update_timer()
+	self.step_timer -= 1
+	if self.step_timer < 0 then
+		self.step_timer = self.max_step_time
+	end	
+end
+
+function worker:update_task()
+	if #self.path then
+		self.task = walking
+	else
+		self.task = idle
+ end 	
+end
+
+function worker:set_path(path)
+	self.path = path
+	self.path_index = #path
+end
+
+function worker:move()
+	if (self.step_timer != 0) return
+ self.tile = popend(self.path)
+end
+-->8
+-- tests
 -- translation tests
 --[[
 printh(pos_to_index(point(4, 0))) -- should be 4
@@ -354,10 +378,6 @@ for n in all(node.neighbors) do
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 --]]
-
-
-
-
 __gfx__
 0044440000eeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 004f44000eefee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
