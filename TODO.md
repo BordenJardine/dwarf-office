@@ -1,5 +1,13 @@
 DWARF OFFICE TODO
 =================
 
-- [ ] Pathing
-- [ ] Movement
+- [x] pathing
+- [x] movement
+
+- [ ] work out UI
+- [ ] worker sprite gen
+- [ ] paperwork task
+- [ ] socializing
+- [ ] building
+- [ ] selecting
+- [ ] assigning jobs
