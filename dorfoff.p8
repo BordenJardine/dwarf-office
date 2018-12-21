@@ -23,12 +23,12 @@ function _init()
 	add(actors, a1)
 	add(actors, a2)
 	graph = generate_graph()
-	a1:set_path(path(a1.tile, a2.tile, true))
+	a1:set_path(path(a1.tile, a2.tile))
 end
 
 function _update()
 	for a in all(actors) do
-		-- a:update()
+	  a:update()
 	end
 end
 
@@ -39,7 +39,7 @@ function _draw()
 		a:draw()
 	end
 	-- draw_indicies()
-	draw_path(actors[1].path)
+	-- draw_path(actors[1].path)
 end
 
 -->8
@@ -209,8 +209,7 @@ function path(start, dest, prox)
 
 	while (#frontier > 0 and #frontier < 1000) do
 		local current = popend(frontier)[1]
-  printh(current)
-
+ 
 		if close_enough(current, dest, prox) then
 			dest = current
 			break
@@ -283,7 +282,7 @@ worker = {
 	tile = 0,
 	sprite = 1,
 	task = idle,
-	path = nil,
+	path = {},
 	path_index = 0,
 	step_timer = default_step_time,
 	max_step_time = default_step_time
@@ -303,9 +302,9 @@ function worker:draw()
 end
 
 function worker:update()
-	-- self:update_timer()
-	-- self:update_task()
-	-- self:move()
+	self:update_timer()
+	self:update_task()
+	self:move()
 end
 
 function worker:update_timer()
@@ -316,7 +315,7 @@ function worker:update_timer()
 end
 
 function worker:update_task()
-	if #self.path then
+	if #self.path > 0 then
 		self.task = walking
 	else
 		self.task = idle
@@ -329,7 +328,7 @@ function worker:set_path(path)
 end
 
 function worker:move()
-	if (self.step_timer != 0) return
+	if (self.step_timer != 0 or self.task != walking) return
  self.tile = popend(self.path)
 end
 -->8
@@ -378,6 +377,7 @@ for n in all(node.neighbors) do
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 --]]
+
 __gfx__
 0044440000eeee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 004f44000eefee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
