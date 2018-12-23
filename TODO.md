@@ -5,9 +5,10 @@ DWARF OFFICE TODO
 - [x] movement
 
 - [ ] work out UI
-- [ ] worker sprite gen
+- [x] worker sprite gen
 - [ ] paperwork task
 - [ ] socializing
+- [ ] emoting
 - [ ] building
 - [ ] selecting
 - [ ] assigning jobs
