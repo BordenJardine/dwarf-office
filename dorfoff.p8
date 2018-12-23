@@ -26,7 +26,7 @@ function _init()
 	a1:set_path(path(a1.tile, a2.tile))
 
 	add(furniture, desk.new({
-	 tile = 17   	
+	 tile = 17
 	}))
   
 	add(furniture, desk.new({
@@ -461,10 +461,28 @@ end
 
 function desk:draw()
 	spr(
-		desk_sprite,	
+		desk_sprite,
 	 graph[self.tile].pos.x * 8,
   graph[self.tile].pos.y * 8
 	)
+end
+-->8
+-- tasks
+
+tasks = {}
+todo = {}
+function create_socialize_task(a1, a2)
+	return {
+		target = nil
+		ticks = 60 * 30 -- 30 secs
+	}
+end
+
+function create_work_task()
+	return {
+		target = nil
+		ticks = 60 * 30 -- 30 secs
+	}
 end
 -->8
 -- tests
