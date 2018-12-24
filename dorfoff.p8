@@ -12,16 +12,20 @@ printh("\n\n-------\n-us sales operations-\n-------")
 furniture = {} -- desks etc
 actors = {} -- workers and stuff
 graph = {} -- graph for navigating around the play area
+active_tasks = {} -- 
 
 function _init()
 	graph = generate_graph()
+	generate_furniture()
+	generate_workers()
+	add(active_tasks, create_socialize_task(actors[1], actors[2]))
 end
 
 function generate_furniture()
 	add(furniture, desk.new({
 	 tile = 17
 	}))
-  
+
 	add(furniture, desk.new({
 		tile = 235
 	}))
@@ -34,12 +38,14 @@ function generate_workers()
 	add(actors, worker.create({
 		tile = random_spot()
 	}))
-	add(tasks, create_socialize_task(actors[1], actors[2]))
 end
 
 function _update()
 	for a in all(actors) do
 	  a:update()
+	end
+	for t in all(active_tasks) do
+	  t:update()
 	end
 end
 
@@ -125,6 +131,7 @@ end
 
 -- math
 
+-- p1 and p2 are points
 function manhattan_distance(p1, p2)
 	return abs(p1.x - p2.x) + abs(p1.y - p2.y)
 end
@@ -144,6 +151,11 @@ impassible = 0
 
 function point(x, y)
 	return {x=x, y=y}
+end
+
+-- t1 and t2 are tiles
+function distance(t1, t2)
+	return manhattan_distance(graph[t1].pos, graph[t2].pos)
 end
 
 function get_flag(pos, flag)
@@ -197,9 +209,6 @@ function get_valid_neighbors(node)
 				 not (neighbor_pos.x == pos.x and neighbor_pos.y == pos.y) and
 				 not get_flag(neighbor_pos, impassible)
 			then
-				if pos_to_index(neighbor_pos) > 255 then
-					printh('uh oh: '.. pos_to_index(neighbor_pos) .. ' ' .. neighbor_pos.x .. ',' .. neighbor_pos.y)
-				end
 				add(neighbors, pos_to_index(neighbor_pos))
 			end
 		end
@@ -220,17 +229,15 @@ function path(start, dest, prox)
 	came_from[start] = nil
 	cost_so_far[start] = 0
 	local tries = 500
-	local found = false
 
 	while (#frontier > 0 and #frontier < 1000) do
 		tries -= 1
 		if tries == 0 then
-			break
+			return {}
 		end
 		local current = popend(frontier)[1]
 
 		if close_enough(current, dest, prox) then
-			found = true
 			dest = current
 			break
 		end
@@ -243,7 +250,7 @@ function path(start, dest, prox)
 				if not graph[next] then
 				  printh('error node not found: ' .. next)
 				end
-				local priority = new_cost + manhattan_distance(graph[dest].pos, graph[next].pos)
+				local priority = new_cost + distance(dest, next)
 				insert(frontier, next, priority)
 
 				came_from[next] = current
@@ -251,9 +258,6 @@ function path(start, dest, prox)
 		end
 	end
 
-	if not found then
-		return {}
-	end
 	local current = came_from[dest]
 	local path = {}
 	while current != start do
@@ -263,16 +267,26 @@ function path(start, dest, prox)
 	return path
 end
 
--- a and b are expected to be points
+-- a and b are expected to be tiles
 function close_enough(a, b, prox)
 	if prox then
-		return manhattan_distance(graph[a].pos, graph[b].pos) > 2
+		return distance(a, b) < 2
 	else
 		return a == b
 	end
 end
 
--- helper function that can eventually go away
+-- helper functions
+function random_spot()
+	while true do
+		local i = flr(rnd(max_graph_index))
+		if graph[i] and graph[i].passible then
+			return i
+		end
+	end
+end
+
+-- debug stuff. delete for tokens
 function draw_indicies()
 	for node in all(graph) do
 		if node.passible then
@@ -291,21 +305,13 @@ function draw_path(p)
 	end
 end
 
-function random_spot()
-	while true do
-		local i = flr(rnd(max_graph_index))
-		if graph[i] and graph[i].passible then
-			return i
-		end
-	end
+function print_tile(t)
+printh('tile: ' .. t .. ''
 end
+
 
 -->8
 -- worker 'class'
-
--- status
-idle = 0
-walking = 1
 
 default_step_time = 4
 
@@ -354,8 +360,9 @@ worker = {
 	hair = hairs[1],
 	shirt = shirts[1],
 	tie = ties[1],
-	task = idle,
+	task = 'idle',
 	path = {},
+	desk = nil,
 	path_index = 0,
 	flip_facing = false,
 	step_timer = default_step_time,
@@ -363,8 +370,7 @@ worker = {
 }
 
 function worker.new(settings)
-	local w = setmetatable((settings or {}), { __index = worker })
-	return w
+	return setmetatable((settings or {}), { __index = worker })
 end
 
 function worker.create(settings)
@@ -416,21 +422,22 @@ function worker:update_timer()
 end
 
 function worker:update_task()
-	if #self.path > 0 then
-		self.task = walking
-	else
-		self.task = idle
-	end
 end
 
-function worker:set_path(path)
-	self.path = path
-	self.path_index = #path
+function worker:socialize()
+	self.task = 'socializing'
+end
+
+function worker:move_to(tile, prox)
+	prox = prox or true
+	self.task = 'walking'
+	self.path = path(self.tile, tile, prox)
+	self.path_index = #self.path
 end
 
 function worker:move()
+	if (self.step_timer != 0 or self.task != 'walking') return
 	local currentx = graph[self.tile].pos.x
-	if (self.step_timer != 0 or self.task != walking) return
 	self.tile = popend(self.path)
 	local newx = graph[self.tile].pos.x
 	if (newx == currentx) return
@@ -446,7 +453,7 @@ desk_sprite = 128
 
 desk = {
 	owner = nil,
-	tile = 0	
+	tile = 0
 }
 
 function desk.new(settings)
@@ -464,27 +471,90 @@ end
 -->8
 -- tasks
 
-tasks = {}
+unassigned_tasks = {}
+active_tasks = {}
 todo = {}
 
--- task states
-find = 0
-carry_out = 1
-complete = 2
+default_ticks = 30 * 60 -- 30 seconds
+
+unclaimed_state = 1
+init_state = 2
+traveling_state = 3
+running_state = 4
+complete_state = 5
+aborted_state = 6
+states = {
+	'unclaimed',
+	'init',
+	'traveling',
+	'running',
+	'complete',
+	'aborted',
+}
+
+-- socialize
 
 function create_socialize_task(a1, a2)
-	return {
+	return task.new({
+		name = 'socializing',
 		workers = {a1, a2},
-		ticks = 60 * 30 -- 30 secs
-		stage = 0
-	}
+		state = init_state,
+		init = socialize_init,
+		traveling = socialize_traveling
+	})
 end
 
+function socialize_init(self)
+	local w1 = self.workers[1]
+	local w2 = self.workers[2]
+	w1:move_to(w2.tile)
+	w2:move_to(w1.tile)
+	self.state += 1
+end
+
+function socialize_traveling(self)
+	if close_enough(self.workers[1], self.workers[2], true) then
+		printh('close enough!')
+		self.state += 1
+	end
+	if self.ticks == 0 then
+		self.state = aborted_state
+	end
+end
+
+-- work
+
 function create_work_task()
-	return {
+	t = task.new({
 		target = nil
-		ticks = 60 * 30 -- 30 secs
-	}
+	})
+	return t
+end
+
+task = {
+	name = 'working',
+	ticks = default_ticks, -- 30 secs
+	state = unclaimed,
+}
+
+function task:traveling()
+end
+
+function task:running()
+end
+
+function task:complete()
+end
+
+function task.new(settings)
+	return setmetatable((settings or {}), { __index = task })
+end
+
+function task:update()
+	local state = states[self.state]
+	if state == 'unclaimed' then return end
+	self.ticks -= 1
+	self[state](self)
 end
 -->8
 -- tests
@@ -598,6 +668,30 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000003000000000077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00007702000000000000770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00ffffffffffff000077770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000055005500000075570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000050005000000077770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000555055500000077770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00b93000000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0b335b00000333000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+003b3300000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00b33300000440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00035000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000dd000000550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000d5000000550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+ddd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+d0d00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+ddd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+dddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+55500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ddd00003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

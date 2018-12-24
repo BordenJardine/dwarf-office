@@ -27,3 +27,10 @@ tasks have path targets.
 
 Worker:
 if task is idle
+
+UIs
+===
+
+Screens
+=======
+- Splash
