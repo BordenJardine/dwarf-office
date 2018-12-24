@@ -15,16 +15,9 @@ graph = {} -- graph for navigating around the play area
 
 function _init()
 	graph = generate_graph()
-	local a1 = worker.create({
-		tile = random_spot()
-	})
-	local a2 = worker.create({
-		tile = random_spot()
-	})
-	add(actors, a1)
-	add(actors, a2)
-	a1:set_path(path(a1.tile, a2.tile))
+end
 
+function generate_furniture()
 	add(furniture, desk.new({
 	 tile = 17
 	}))
@@ -32,7 +25,16 @@ function _init()
 	add(furniture, desk.new({
 		tile = 235
 	}))
+end
 
+function generate_workers()
+	add(actors, worker.create({
+		tile = random_spot()
+	}))
+	add(actors, worker.create({
+		tile = random_spot()
+	}))
+	add(tasks, create_socialize_task(actors[1], actors[2]))
 end
 
 function _update()
@@ -388,13 +390,6 @@ function worker:draw()
 	pal()
 end
 
-
-function worker:update()
-	self:update_timer()
-	self:update_task()
-	self:move()
-end
-
 function worker:update_timer()
 	self.step_timer -= 1
 	if self.step_timer < 0 then
@@ -471,10 +466,17 @@ end
 
 tasks = {}
 todo = {}
+
+-- task states
+find = 0
+carry_out = 1
+complete = 2
+
 function create_socialize_task(a1, a2)
 	return {
-		target = nil
+		workers = {a1, a2},
 		ticks = 60 * 30 -- 30 secs
+		stage = 0
 	}
 end
 
