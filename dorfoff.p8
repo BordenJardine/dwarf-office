@@ -32,12 +32,12 @@ function generate_furniture()
 end
 
 function generate_workers()
-	add(actors, worker.create({
+	worker.create({
 		tile = random_spot()
-	}))
-	add(actors, worker.create({
+	})
+	worker.create({
 		tile = random_spot()
-	}))
+	})
 end
 
 function _update()
@@ -270,7 +270,7 @@ end
 -- a and b are expected to be tiles
 function close_enough(a, b, prox)
 	if prox then
-		return distance(a, b) < 2
+		return distance(a, b) < prox
 	else
 		return a == b
 	end
@@ -305,8 +305,17 @@ function draw_path(p)
 	end
 end
 
+function print_path(p)
+	local str = ''
+	for i in all(p) do
+		str = (str .. ', ' .. i)
+	end
+	printh(str)
+end
+
 function print_tile(t)
-printh('tile: ' .. t .. ''
+	local pos = graph(t).pos
+	printh('tile: ' .. t .. ' x,y: ' .. pos.x .. ',' .. pos.y)
 end
 
 
@@ -381,7 +390,10 @@ function worker.create(settings)
 	settings.hair = settings.hair or select(hairs)
 	settings.shirt = settings.shirt or select(shirts)
 	settings.tie = settings.ties or select(ties)
-	return worker.new(settings)
+	settings.index = #actors+1
+
+	add(graph[settings.tile].occupants, settings.index)
+	add(actors, worker.new(settings))
 end
 
 function worker:draw()
@@ -429,17 +441,26 @@ function worker:socialize()
 end
 
 function worker:move_to(tile, prox)
-	prox = prox or true
+	prox = prox or false
 	self.task = 'walking'
 	self.path = path(self.tile, tile, prox)
 	self.path_index = #self.path
 end
 
 function worker:move()
-	if (self.step_timer != 0 or self.task != 'walking') return
-	local currentx = graph[self.tile].pos.x
+	if (self.step_timer != 0 or self.task != 'walking' or #self.path < 1) return
+	local current_node = graph[self.tile]
 	self.tile = popend(self.path)
-	local newx = graph[self.tile].pos.x
+	if self.tile == 0 then
+		printh('wtf!')
+	end
+	local new_node = graph[self.tile]
+
+	del(current_node.occupants, self.index)
+	add(new_node.occupants, self.index)
+
+	local current_x = current_node.pos.x
+	local new_x = new_node.pos.x
 	if (newx == currentx) return
 	if newx < currentx then
 		self.flip_facing = true
@@ -457,8 +478,7 @@ desk = {
 }
 
 function desk.new(settings)
-	local d = setmetatable((settings or {}), { __index = desk })
-	return d
+	return setmetatable((settings or {}), { __index = desk })
 end
 
 function desk:draw()
@@ -512,9 +532,18 @@ function socialize_init(self)
 	self.state += 1
 end
 
+closest = 1000
 function socialize_traveling(self)
-	if close_enough(self.workers[1], self.workers[2], true) then
-		printh('close enough!')
+	local w1 = self.workers[1]
+	local w2 = self.workers[2]
+	d = distance(w1.tile, w2.tile)
+	if (d < closest) then
+		closest = d
+		printh(d)
+	end
+	if close_enough(w1.tile, w2.tile, 3) then
+		w1:socialize()
+		w2:socialize()
 		self.state += 1
 	end
 	if self.ticks == 0 then
