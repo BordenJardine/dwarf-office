@@ -196,6 +196,8 @@ function pos_to_index(pos)
 	return ((pos.y - ui_offset) * 16) + pos.x
 end
 
+--[[
+-- diagonals
 function get_valid_neighbors(node)
 	local neighbors = {}
 	if not node.passible then
@@ -213,6 +215,26 @@ function get_valid_neighbors(node)
 			then
 				add(neighbors, pos_to_index(neighbor_pos))
 			end
+		end
+	end
+	return neighbors
+end
+--]]
+offsets = {{-1, 0}, {1,0}, {0,-1}, {0,1}}
+function get_valid_neighbors(node)
+	local neighbors = {}
+	if not node.passible then
+		return neighbors
+	end
+	local pos = node.pos
+	for offset in all(offsets) do
+		local neighbor_pos = point(pos.x+offset[1], pos.y+offset[2])
+		-- not out of the play area, not the current point, and passible tile
+		if neighbor_pos.x >= min_x and neighbor_pos.x <= max_x and
+			 neighbor_pos.y >= min_y and neighbor_pos.y <= max_y and
+			 not get_flag(neighbor_pos, impassible)
+		then
+			add(neighbors, pos_to_index(neighbor_pos))
 		end
 	end
 	return neighbors
@@ -386,7 +408,6 @@ function worker.new(settings)
 end
 
 function worker.create(settings)
-	printh('tile: ' .. settings.tile)
 	settings = settings or {}
 	settings.body = settings.body or sample(bodies)
 	settings.head = settings.head or sample(heads)
@@ -550,17 +571,23 @@ function socialize_traveling(self)
 		w1:move_to(w2.tile, 1)
 		w2:wait()
 		self:advance()
+		return
 	end
+
+	-- we might be oscillating. hang on a sec
+	if self.ticks < default_ticks - 60 * 3 then
+		w2:wait()
+	elseif self.ticks % 30 == 0 then
 	-- correct path every half second
-	if self.ticks % 30 == 0 then
-		self.state = 1
+		w1:move_to(w2.tile)
+		w2:move_to(w1.tile)
 	end
 end
 
 function socialize_arriving(self)
 	local w1 = self.workers[1]
 	local w2 = self.workers[2]
-	if distance(w1.tile, w2.tile) < 1 then
+	if distance(w1.tile, w2.tile) < 2 then
 		w1:socialize()
 		w2:socialize()
 		self:advance()
@@ -611,6 +638,8 @@ function task:update()
 		self.state = #self.states --abort
 		return
 	end
+	-- call the function on this task relevant to the current state
+	state = self.states[self.state]
 	self[state](self)
 end
 
