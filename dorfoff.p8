@@ -59,7 +59,7 @@ function _draw()
 	for a in all(actors) do
 		a:draw()
 	end
-	draw_path(actors[1].path)
+	-- draw_path(actors[1].path)
 end
 
 -->8
@@ -456,9 +456,6 @@ function worker:move()
 	if (self.step_timer != 0 or self.task != 'walking' or #self.path < 1) return
 	local current_node = graph[self.tile]
 	self.tile = popend(self.path)
-	if self.tile == 0 then
-		printh('wtf!')
-	end
 	local new_node = graph[self.tile]
 
 	del(current_node.occupants, self.index)
@@ -466,8 +463,8 @@ function worker:move()
 
 	local current_x = current_node.pos.x
 	local new_x = new_node.pos.x
-	if (newx == currentx) return
-	if newx < currentx then
+	if (new_x == current_x) return
+	if new_x < current_x then
 		self.flip_facing = true
 	else
 		self.flip_facing = false
@@ -556,7 +553,7 @@ end
 function socialize_arriving(self)
 	local w1 = self.workers[1]
 	local w2 = self.workers[2]
-	if distance(w1.tile, w2.tile) < 2 then
+	if distance(w1.tile, w2.tile) < 1 then
 		w1:socialize()
 		w2:socialize()
 		self:advance()
