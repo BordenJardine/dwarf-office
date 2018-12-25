@@ -36,9 +36,7 @@ function generate_furniture()
 		})
 	end
 	for t in all({43, 100}) do
-		create_plant({
-			tile = t
-		})
+		create_plant(t)
 	end
 end
 
@@ -541,10 +539,11 @@ function create_chair(tile)
 end
 
 function draw_chair(self)
+	local pos = graph[self.tile].pos
 	spr(
 		chair_sprite,
-		graph[self.tile].pos.x * 8,
-		graph[self.tile].pos.y * 8
+		pos.x * 8,
+		pos.y * 8
 	)
 end
 
@@ -559,10 +558,11 @@ function create_plant(tile)
 end
 
 function draw_plant(self)
+	local pos = graph[self.tile].pos
 	spr(
 		self.sprite,
-		graph[self.tile].pos.x * 8,
-		graph[self.tile].pos.y * 8
+		pos.x * 8,
+		pos.y * 8
 	)
 end
 -->8
