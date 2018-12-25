@@ -4,14 +4,16 @@ DWARF OFFICE TODO
 - [x] pathing
 - [x] movement
 
-- [ ] work out UI
 - [x] worker sprite gen
 - [ ] paperwork task
-- [ ] socializing
-- [ ] emoting
-- [ ] building
+- [v] socializing
+- [ ] drawing furniture
+- [ ] work out UI
 - [ ] selecting
 - [ ] assigning jobs
+- [ ] assigning desks
+- [ ] building
+- [ ] emoting
 
 Task Manager
 ============
