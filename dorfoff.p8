@@ -59,7 +59,7 @@ function _draw()
 	for a in all(actors) do
 		a:draw()
 	end
-	-- draw_path(actors[1].path)
+	draw_path(actors[1].path)
 end
 
 -->8
@@ -233,7 +233,7 @@ function path(start, dest, prox)
 	while (#frontier > 0 and #frontier < 1000) do
 		tries -= 1
 		if tries == 0 then
-			return {}
+			return {} -- give up
 		end
 		local current = popend(frontier)[1]
 
@@ -371,6 +371,7 @@ worker = {
 	tie = ties[1],
 	task = 'idle',
 	path = {},
+	todo = {},
 	desk = nil,
 	path_index = 0,
 	flip_facing = false,
@@ -440,8 +441,12 @@ function worker:socialize()
 	self.task = 'socializing'
 end
 
+function worker:wait()
+	self.task = 'waiting'
+end
+
 function worker:move_to(tile, prox)
-	prox = prox or false
+	prox = prox or 2
 	self.task = 'walking'
 	self.path = path(self.tile, tile, prox)
 	self.path_index = #self.path
@@ -468,6 +473,20 @@ function worker:move()
 		self.flip_facing = false
 	end
 end
+
+function worker:uncrowd()
+	local current_node = graph[self.tile]
+	if #current_node.occupants < 1 then
+		return
+	end
+	for n in all(current_node.neighbors) do
+		if #graph[n].occupants < 1 then
+			self:move_to(n, 1)
+			return
+		end
+	end
+end
+
 -->8
 -- furniture
 desk_sprite = 128
@@ -493,24 +512,8 @@ end
 
 unassigned_tasks = {}
 active_tasks = {}
-todo = {}
 
 default_ticks = 30 * 60 -- 30 seconds
-
-unclaimed_state = 1
-init_state = 2
-traveling_state = 3
-running_state = 4
-complete_state = 5
-aborted_state = 6
-states = {
-	'unclaimed',
-	'init',
-	'traveling',
-	'running',
-	'complete',
-	'aborted',
-}
 
 -- socialize
 
@@ -518,9 +521,17 @@ function create_socialize_task(a1, a2)
 	return task.new({
 		name = 'socializing',
 		workers = {a1, a2},
-		state = init_state,
 		init = socialize_init,
-		traveling = socialize_traveling
+		traveling = socialize_traveling,
+		arriving = socialize_arriving,
+		states = {
+			'init',
+			'traveling',
+			'arriving',
+			'running',
+			'complete',
+			'aborted'
+		}
 	})
 end
 
@@ -529,25 +540,26 @@ function socialize_init(self)
 	local w2 = self.workers[2]
 	w1:move_to(w2.tile)
 	w2:move_to(w1.tile)
-	self.state += 1
+	self:advance()
 end
 
-closest = 1000
 function socialize_traveling(self)
 	local w1 = self.workers[1]
 	local w2 = self.workers[2]
-	d = distance(w1.tile, w2.tile)
-	if (d < closest) then
-		closest = d
-		printh(d)
+	if distance(w1.tile, w2.tile) < 3 then
+		w1:move_to(w2.tile, 1)
+		w2:wait()
+		self:advance()
 	end
-	if close_enough(w1.tile, w2.tile, 3) then
+end
+
+function socialize_arriving(self)
+	local w1 = self.workers[1]
+	local w2 = self.workers[2]
+	if distance(w1.tile, w2.tile) < 2 then
 		w1:socialize()
 		w2:socialize()
-		self.state += 1
-	end
-	if self.ticks == 0 then
-		self.state = aborted_state
+		self:advance()
 	end
 end
 
@@ -563,7 +575,15 @@ end
 task = {
 	name = 'working',
 	ticks = default_ticks, -- 30 secs
-	state = unclaimed,
+	state = 1,
+	states = {
+		'unclaimed',
+		'init',
+		'traveling',
+		'running',
+		'complete',
+		'aborted',
+	}
 }
 
 function task:traveling()
@@ -580,10 +600,19 @@ function task.new(settings)
 end
 
 function task:update()
-	local state = states[self.state]
+	local state = self.states[self.state]
 	if state == 'unclaimed' then return end
 	self.ticks -= 1
+	if self.ticks < 1 then
+		self.state = #self.states --abort
+		return
+	end
 	self[state](self)
+end
+
+function task:advance()
+	self.state += 1
+	self.ticks = default_ticks
 end
 -->8
 -- tests
