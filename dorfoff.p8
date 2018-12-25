@@ -78,6 +78,7 @@ function _draw()
 		f:draw()
 	end
 	-- draw_path(actors[1].path)
+	draw_ui()
 end
 
 -->8
@@ -129,7 +130,16 @@ function manhattan_distance(p1, p2)
 	return abs(p1.x - p2.x) + abs(p1.y - p2.y)
 end
 
--- priority queue!
+-- sprites
+function zspr(n,w,h,dx,dy,dz)
+	sx = 8 * (n % 16)
+	sy = 8 * flr(n / 16)
+	sw = 8 * w
+	sh = 8 * h
+	dw = sw * dz
+	dh = sh * dz
+	sspr(sx,sy,sw,sh, dx,dy,dw,dh)
+end
 
 -->8
 -- map stuff
@@ -376,9 +386,15 @@ ties = {
 	14
 }
 
+name_parts = {
+	'jor', 'eth', 'ken', 'di', 'car', 'yuk', 'ist', 'ur',
+	'jon', 'bil', 'liv', 'iv',  'ma',  'at', 'cor'
+}
+
 worker = {
 	player = 0,
 	tile = 0,
+	name = 'foo',
 	body = bodies[1],
 	head = heads[1],
 	skin = skins[1],
@@ -408,20 +424,27 @@ function worker.create(settings)
 	settings.shirt = settings.shirt or sample(shirts)
 	settings.tie = settings.ties or sample(ties)
 	settings.index = #actors+1
+	settings.name = sample(name_parts) .. sample(name_parts)
 
 	add(graph[settings.tile].occupants, settings.index)
 	add(actors, worker.new(settings))
 end
 
-function worker:draw()
-	local x = graph[self.tile].pos.x * 8
-	local y = graph[self.tile].pos.y * 8
+function worker:draw(x, y, scale)
+	local pos = graph[self.tile].pos
+	local x = (x or pos.x) * 8
+	local y = (y or pos.y) * 8
+	local scale = scale or 1
 	pal(11, self.skin)
 	pal(10, self.hair)
 	pal(14, self.shirt)
 	pal(12, self.tie)
-	spr(self.body, x, y, 1, 1, self.flip_facing)
-	spr(self.head, x, y, 1, 1, self.flip_facing)
+
+	for sp in all({self.head, self.body}) do
+		zspr(sp, 1, 1, x, y, scale)
+	end
+	--spr(self.body, x, y, 1, 1, self.flip_facing)
+	--spr(self.head, x, y, 1, 1, self.flip_facing)
 	pal()
 end
 
@@ -699,6 +722,21 @@ function task:advance()
 	self.state += 1
 	self.ticks = default_ticks
 end
+-->8
+-- ui
+
+function draw_ui()
+	draw_worker_ui(actors[1])
+	draw_worker_ui(actors[2], 8)
+end
+
+function draw_worker_ui(worker, offset)
+	offset = offset or 0
+	print(worker.name, (2 + offset) * 8, 0, 7)
+	worker:draw((6 + offset), 0, 2)
+	print(worker.task, (2 + offset) * 8, 2 * 8, 7)
+end
+
 -->8
 -- tests
 -- translation tests
