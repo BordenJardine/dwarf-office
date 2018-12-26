@@ -131,14 +131,14 @@ function manhattan_distance(p1, p2)
 end
 
 -- sprites
-function zspr(n,w,h,dx,dy,dz)
-	sx = 8 * (n % 16)
-	sy = 8 * flr(n / 16)
-	sw = 8 * w
-	sh = 8 * h
-	dw = sw * dz
-	dh = sh * dz
-	sspr(sx,sy,sw,sh, dx,dy,dw,dh)
+function zspr(n,w,h,dx,dy,dz,f)
+	local sx = shl(band(n, 0x0f), 3)
+	local sy = shr(band(n, 0xf0), 1)
+	local sw = shl(w, 3)
+	local sh = shl(h, 3)
+	local dw = sw * dz
+	local dh = sh * dz
+	sspr(sx,sy,sw,sh, dx,dy,dw,dh,f)
 end
 
 -->8
@@ -432,8 +432,8 @@ end
 
 function worker:draw(x, y, scale)
 	local pos = graph[self.tile].pos
-	local x = (x or pos.x) * 8
-	local y = (y or pos.y) * 8
+	local x = x or (pos.x * 8)
+	local y = y or (pos.y * 8)
 	local scale = scale or 1
 	pal(11, self.skin)
 	pal(10, self.hair)
@@ -441,7 +441,7 @@ function worker:draw(x, y, scale)
 	pal(12, self.tie)
 
 	for sp in all({self.head, self.body}) do
-		zspr(sp, 1, 1, x, y, scale)
+		zspr(sp, 1, 1, x, y, scale, self.flip_facing)
 	end
 	--spr(self.body, x, y, 1, 1, self.flip_facing)
 	--spr(self.head, x, y, 1, 1, self.flip_facing)
@@ -732,8 +732,9 @@ end
 
 function draw_worker_ui(worker, offset)
 	offset = offset or 0
-	print(worker.name, (2 + offset) * 8, 0, 7)
-	worker:draw((6 + offset), 0, 2)
+	margin = 1
+	print(worker.name, (2 + offset) * 8, margin, 7)
+	worker:draw((6 + offset) * 8 - margin, margin, 2)
 	print(worker.task, (2 + offset) * 8, 2 * 8, 7)
 end
 
