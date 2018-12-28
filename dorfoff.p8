@@ -22,11 +22,13 @@ background = {} -- stuff to draw behind the actors
 forground = {} -- stuff to draw in front of the actors
 graph = {} -- graph for navigating around the play area
 active_tasks = {} --
+selectors = {}
 
 function _init()
 	graph = generate_graph()
 	generate_furniture()
 	generate_workers()
+	generate_selectors()
 	add(active_tasks, create_socialize_task(actors[1], actors[2]))
 end
 
@@ -55,12 +57,21 @@ function generate_workers()
 	})
 end
 
-function _update()
-	for a in all(actors) do
-	  a:update()
+function generate_selectors()
+	for i=1,2 do
+		add(selectors, create_selector(i))
 	end
+end
+
+function _update()
 	for t in all(active_tasks) do
-	  t:update()
+		t:update()
+	end
+	for a in all(actors) do
+		a:update()
+	end
+	for s in all(selectors) do
+		s:update()
 	end
 end
 
@@ -76,6 +87,9 @@ function _draw()
 	end
 	for f in all(forground) do
 		f:draw()
+	end
+	for s in all(selectors) do
+		s:draw()
 	end
 	-- draw_path(actors[1].path)
 	draw_ui()
@@ -145,12 +159,12 @@ end
 -- map stuff
 
 ui_offset = 3
-min_graph_index = 0
-max_graph_index = 16 * (16 - (ui_offset * 1))
+min_tile = 0
+max_tile = 16 * (16 - (ui_offset * 1))
 min_x = 0
 max_x = 15
 min_y = ui_offset
-max_y = 15 -- - ui_offset
+max_y = 15
 impassible = 0
 
 function point(x, y)
@@ -169,11 +183,11 @@ end
 -- create a cached graph of the map. each space on the map is indexed
 function generate_graph()
 	local graph = {}
-	for i=min_graph_index,max_graph_index do
+	for i=min_tile,max_tile do
 		local node = {}
 		node.occupants = {}
-		node.index = i
-		node.pos = index_to_pos(i)
+		node.tile = i
+		node.pos = tile_to_pos(i)
 		node.passible = not get_flag(node.pos, impassible)
 		node.neighbors = get_valid_neighbors(node)
 		graph[i] = node
@@ -184,17 +198,17 @@ end
 --[[
 translate between map indexes and x,y coords
 for instance:
-	pos_to_index(point(4, 0)) -- 4
-	pos_to_index(point(1, 4)) -- 65
-	index_to_pos(255) -- 15, 16
+	pos_to_tile(point(4, 0)) -- 4
+	pos_to_tile(point(1, 4)) -- 65
+	tile_to_pos(255) -- 15, 16
 -- ]]
-function index_to_pos(index)
-	local y = flr(index / 16) + ui_offset
-	local x = index % 16
+function tile_to_pos(tile)
+	local y = flr(tile / 16) + ui_offset
+	local x = tile % 16
 	return point(x, y)
 end
 
-function pos_to_index(pos)
+function pos_to_tile(pos)
 	return ((pos.y - ui_offset) * 16) + pos.x
 end
 
@@ -215,7 +229,7 @@ function get_valid_neighbors(node)
 				 not (neighbor_pos.x == pos.x and neighbor_pos.y == pos.y) and
 				 not get_flag(neighbor_pos, impassible)
 			then
-				add(neighbors, pos_to_index(neighbor_pos))
+				add(neighbors, pos_to_tile(neighbor_pos))
 			end
 		end
 	end
@@ -236,7 +250,7 @@ function get_valid_neighbors(node)
 			 neighbor_pos.y >= min_y and neighbor_pos.y <= max_y and
 			 not get_flag(neighbor_pos, impassible)
 		then
-			add(neighbors, pos_to_index(neighbor_pos))
+			add(neighbors, pos_to_tile(neighbor_pos))
 		end
 	end
 	return neighbors
@@ -307,7 +321,7 @@ function random_spot()
 	while true do
 		local node = sample(graph)
 		if node and node.passible then
-			return node.index
+			return node.tile
 		end
 	end
 end
@@ -316,7 +330,7 @@ end
 function draw_indicies()
 	for node in all(graph) do
 		if node.passible then
-			print(node.index, node.pos.x * 8, node.pos.y * 8, 1)
+			print(node.tile, node.pos.x * 8, node.pos.y * 8, 1)
 		end
 	end
 end
@@ -607,7 +621,6 @@ end
 -- tasks
 
 unassigned_tasks = {}
-active_tasks = {}
 
 default_ticks = 30 * 60 -- 30 seconds
 
@@ -738,15 +751,79 @@ function draw_worker_ui(worker, offset)
 	print(worker.task, (2 + offset) * 8, 2 * 8, 7)
 end
 
+-- selector
+selector_sprite = 31
+selector_colors = {
+	5,
+	15
+}
+scroll_throttle_ticks = 3
+
+function create_selector(player)
+	return {
+		player = player,
+		tile = player == 1 and min_tile or max_tile,
+		draw = draw_selector,
+		update = update_selector,
+		clr = selector_colors[player],
+		scroll_ticks = 0
+	}
+end
+
+function update_selector(self)
+	local pos = tile_to_pos(self.tile)
+	local bl=btn(0, self.player)
+	local br=btn(1, self.player)
+	local bu=btn(2, self.player)
+	local bd=btn(3, self.player)
+
+	-- scroll throttling
+	-- TODO this is a mess!
+	if not (bl or br or bu or bd) then
+		self.scroll_ticks = 0
+		return
+	end
+	self.scroll_ticks += 1
+	if self.scroll_ticks > scroll_throttle_ticks then
+		self.scroll_ticks = 0
+	end
+	if self.scroll_ticks != 1 then
+		return
+	end
+
+	if bl and pos.x > min_x then
+		pos.x -= 1
+	end
+	if br and pos.x < max_x then
+		pos.x += 1
+	end
+	if bu and pos.y > min_y then
+		pos.y -= 1
+	end
+	if bd and pos.y < max_y then
+		pos.y += 1
+	end
+	self.tile = pos_to_tile(pos)
+end
+
+function draw_selector(self)
+	local pos = graph[self.tile].pos
+	local x = x or (pos.x * 8)
+	local y = y or (pos.y * 8)
+	pal(11, self.clr)
+	spr(selector_sprite, x, y)
+	pal()
+end
+
 -->8
 -- tests
 -- translation tests
 --[[
-printh(pos_to_index(point(4, 0))) -- should be 4
-printh(pos_to_index(point(1, 4))) -- should be 65
-local pos = index_to_pos(5)
+printh(pos_to_tile(point(4, 0))) -- should be 4
+printh(pos_to_tile(point(1, 4))) -- should be 65
+local pos = tile_to_pos(5)
 printh(pos.x .. ' ' .. pos.y) -- should be 5, 0
-local pos2 = index_to_pos(254)
+local pos2 = tile_to_pos(254)
 printh(pos2.x .. ' ' .. pos2.y) -- should be 14, 15
 --]]
 
@@ -757,13 +834,13 @@ printh('--0,0--')
 -- expected: 1, 16, 17
 local n1 = get_valid_neighbors({pos = point(0,0)})
 for n in all(n1) do
-	local posn = index_to_pos(n)
+	local posn = tile_to_pos(n)
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 printh('--4,2--')
 local n2 = get_valid_neighbors({pos = point(4,2)})
 for n in all(n2) do
-	local posn = index_to_pos(n)
+	local posn = tile_to_pos(n)
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 --]]
@@ -780,7 +857,7 @@ printh('--3,2--')
 node = graph[35]
 printh('passible: ' .. node.passible)
 for n in all(node.neighbors) do
-	local posn = index_to_pos(n)
+	local posn = tile_to_pos(n)
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 --]]
@@ -794,14 +871,14 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb0000bb
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b000000b
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0eeebe000eeece000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0beeee000beece000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00555500005555000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00500500005005000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+005555000055550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b000000b
+005005000050050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb0000bb
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
