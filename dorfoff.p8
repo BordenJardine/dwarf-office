@@ -438,11 +438,11 @@ function worker.create(settings)
 	settings.hair = settings.hair or sample(hairs)
 	settings.shirt = settings.shirt or sample(shirts)
 	settings.tie = settings.ties or sample(ties)
-	settings.index = #actors+1
 	settings.name = sample(name_parts) .. sample(name_parts)
 
-	add(graph[settings.tile].occupants, settings.index)
-	add(actors, worker.new(settings))
+	local w = worker.new(settings)
+	add(graph[settings.tile].occupants, w)
+	add(actors, w)
 end
 
 function worker:draw(x, y, scale)
@@ -512,8 +512,8 @@ function worker:move()
 	self.tile = popend(self.path)
 	local new_node = graph[self.tile]
 
-	del(current_node.occupants, self.index)
-	add(new_node.occupants, self.index)
+	del(current_node.occupants, self)
+	add(new_node.occupants, self)
 
 	local current_x = current_node.pos.x
 	local new_x = new_node.pos.x
@@ -744,7 +744,7 @@ end
 
 function draw_ui()
 	for s in all(selectors) do
-		draw_selection(selector)
+		draw_selection(s)
 	end
 end
 
@@ -782,6 +782,7 @@ function create_selector(player)
 		draw = draw_selector,
 		update = update_selector,
 		check_move_selector = check_move_selector,
+		check_select = check_select,
 		clr = selector_colors[player],
 		selection = nil,
 		scroll_ticks = 0
@@ -789,13 +790,34 @@ function create_selector(player)
 end
 
 function update_selector(self)
-	self:check_selection_selector()
+	self:check_select()
 	if not self.selection then
 		self:check_move_selector()
 	end
 end
 
-function check_move_selection(self)
+function check_select(self)
+	local bo=btn(4, self.player) -- select
+	local bx=btn(5, self.player) -- unselect
+
+	if bx then -- unselect button
+		self.selection = nil
+		return
+	end
+	
+	if self.selection or not bo then -- already something selected
+		return
+	end
+
+	for o in all(graph[self.tile].occupants) do
+		if o.type == 'worker' then
+			self.selection = o
+			return
+		end
+	end
+end
+
+function check_move_selector(self)
 	local pos = tile_to_pos(self.tile)
 	local bl=btn(0, self.player)
 	local br=btn(1, self.player)
