@@ -7,13 +7,15 @@ DWARF OFFICE TODO
 - [x] worker sprite gen
 - [ ] paperwork task
 - [v] socializing
-- [ ] drawing furniture
+- [x] drawing furniture
 - [ ] work out UI
-- [ ] selecting
+- [x] selecting
+	- [ ] OO cursor
 - [ ] assigning jobs
 - [ ] assigning desks
 - [ ] building
 - [ ] emoting
+- [ ] OO timers
 
 Task Manager
 ============

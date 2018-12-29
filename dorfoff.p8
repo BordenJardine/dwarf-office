@@ -22,13 +22,13 @@ background = {} -- stuff to draw behind the actors
 forground = {} -- stuff to draw in front of the actors
 graph = {} -- graph for navigating around the play area
 active_tasks = {} --
-selectors = {}
+cursors = {}
 
 function _init()
 	graph = generate_graph()
 	generate_furniture()
 	generate_workers()
-	generate_selectors()
+	generate_cursors()
 	add(active_tasks, create_socialize_task(actors[1], actors[2]))
 end
 
@@ -57,9 +57,9 @@ function generate_workers()
 	})
 end
 
-function generate_selectors()
+function generate_cursors()
 	for i=1,2 do
-		add(selectors, create_selector(i))
+		add(cursors, create_cursor(i))
 	end
 end
 
@@ -70,8 +70,8 @@ function _update()
 	for a in all(actors) do
 		a:update()
 	end
-	for s in all(selectors) do
-		s:update()
+	for c in all(cursors) do
+		c:update()
 	end
 	update_idle_timer()
 end
@@ -89,8 +89,8 @@ function _draw()
 	for f in all(forground) do
 		f:draw()
 	end
-	for s in all(selectors) do
-		s:draw()
+	for c in all(cursors) do
+		c:draw()
 	end
 	-- draw_path(actors[1].path)
 	draw_ui()
@@ -769,13 +769,13 @@ end
 -- ui
 
 function draw_ui()
-	for s in all(selectors) do
+	for s in all(cursors) do
 		draw_selection(s)
 	end
 end
 
-function draw_selection(selector)
-	local selection = selector.selection
+function draw_selection(cursor)
+	local selection = cursor.selection
 	if not selection then
 		return
 	end
@@ -793,34 +793,32 @@ function draw_worker_ui(worker, offset)
 	print(worker.task, (2 + offset) * 8, 2 * 8, 7)
 end
 
--- selector
-selector_sprite = 31
+-- cursor
+cursor_sprite = 31
 selected_sprite = 30
-selector_colors = {
+cursor_colors = {
 	5,
 	15
 }
 scroll_throttle_ticks = 3
 
-function create_selector(player)
+function create_cursor(player)
 	return {
 		player = player,
 		tile = player == 1 and min_tile or max_tile,
-		draw = draw_selector,
-		update = update_selector,
-		check_move_selector = check_move_selector,
+		draw = draw_cursor,
+		update = update_cursor,
+		check_move_cursor = check_move_cursor,
 		check_select = check_select,
-		clr = selector_colors[player],
+		clr = cursor_colors[player],
 		selection = nil,
 		scroll_ticks = 0
 	}
 end
 
-function update_selector(self)
+function update_cursor(self)
 	self:check_select()
-	if not self.selection then
-		self:check_move_selector()
-	end
+	self:check_move_cursor()
 end
 
 function check_select(self)
@@ -844,7 +842,11 @@ function check_select(self)
 	end
 end
 
-function check_move_selector(self)
+function check_move_cursor(self)
+	if self.selection then
+		self.tile = self.selection.tile
+		return
+	end
 	local pos = tile_to_pos(self.tile)
 	local bl=btn(0, self.player)
 	local br=btn(1, self.player)
@@ -878,12 +880,12 @@ function check_move_selector(self)
 	self.tile = pos_to_tile(pos)
 end
 
-function draw_selector(self)
+function draw_cursor(self)
 	local pos = graph[self.tile].pos
 	local x = x or (pos.x * 8)
 	local y = y or (pos.y * 8)
 	pal(11, self.clr)
-	spr(selector_sprite, x, y)
+	spr(cursor_sprite, x, y)
 	if self.selection then
 		spr(selected_sprite, x, y)
 	end
