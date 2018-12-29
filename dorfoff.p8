@@ -406,6 +406,7 @@ name_parts = {
 }
 
 worker = {
+	type = 'worker',
 	player = 0,
 	tile = 0,
 	name = 'foo',
@@ -546,6 +547,7 @@ copier_sprite = 130
 plant_sprites = {144, 145, 146}
 
 desk = {
+	type = 'desk',
 	owner = nil,
 	chair = nil,
 	tile = 0
@@ -591,6 +593,7 @@ end
 
 function create_plant(tile)
 	local p = {
+		type = 'plant',
 		tile = tile,
 		draw = draw_thing,
 		sprite = sample(plant_sprites)
@@ -601,6 +604,7 @@ end
 
 function create_copier(tile)
 	local p = {
+		type = 'copier',
 		tile = tile,
 		draw = draw_thing,
 		sprite = copier_sprite
@@ -739,8 +743,20 @@ end
 -- ui
 
 function draw_ui()
-	draw_worker_ui(actors[1])
-	draw_worker_ui(actors[2], 8)
+	for s in all(selectors) do
+		draw_selection(selector)
+	end
+end
+
+function draw_selection(selector)
+	local selection = selector.selection
+	if not selection then
+		return
+	end
+
+	if selection.type == 'worker' then
+		draw_worker_ui(selection)
+	end
 end
 
 function draw_worker_ui(worker, offset)
@@ -765,12 +781,21 @@ function create_selector(player)
 		tile = player == 1 and min_tile or max_tile,
 		draw = draw_selector,
 		update = update_selector,
+		check_move_selector = check_move_selector,
 		clr = selector_colors[player],
+		selection = nil,
 		scroll_ticks = 0
 	}
 end
 
 function update_selector(self)
+	self:check_selection_selector()
+	if not self.selection then
+		self:check_move_selector()
+	end
+end
+
+function check_move_selection(self)
 	local pos = tile_to_pos(self.tile)
 	local bl=btn(0, self.player)
 	local br=btn(1, self.player)
@@ -793,14 +818,12 @@ function update_selector(self)
 
 	if bl and pos.x > min_x then
 		pos.x -= 1
-	end
-	if br and pos.x < max_x then
+	elseif br and pos.x < max_x then
 		pos.x += 1
 	end
 	if bu and pos.y > min_y then
 		pos.y -= 1
-	end
-	if bd and pos.y < max_y then
+	elseif bd and pos.y < max_y then
 		pos.y += 1
 	end
 	self.tile = pos_to_tile(pos)
