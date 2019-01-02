@@ -213,30 +213,6 @@ function pos_to_tile(pos)
 	return ((pos.y - ui_offset) * 16) + pos.x
 end
 
---[[
--- diagonals
-function get_valid_neighbors(node)
-	local neighbors = {}
-	if not node.passible then
-		return neighbors
-	end
-	local pos = node.pos
-	for yi=-1,1 do
-		for xi=-1,1 do
-			local neighbor_pos = point(pos.x + xi,pos.y+yi)
-			-- not out of the play area, not the current point, and passible tile
-			if neighbor_pos.x >= min_x and neighbor_pos.x <= max_x and
-				 neighbor_pos.y >= min_y and neighbor_pos.y <= max_y and
-				 not (neighbor_pos.x == pos.x and neighbor_pos.y == pos.y) and
-				 not get_flag(neighbor_pos, impassible)
-			then
-				add(neighbors, pos_to_tile(neighbor_pos))
-			end
-		end
-	end
-	return neighbors
-end
---]]
 offsets = {{-1, 0}, {1,0}, {0,-1}, {0,1}}
 function get_valid_neighbors(node)
 	local neighbors = {}
@@ -447,11 +423,15 @@ function worker.create(settings)
 	add(actors, w)
 end
 
-function worker:draw(x, y, scale)
+function worker:draw(x, y, scale, no_flip)
 	local pos = graph[self.tile].pos
 	local x = x or (pos.x * 8)
 	local y = y or (pos.y * 8)
 	local scale = scale or 1
+	local flip = self.flip_facing
+	if no_flip then
+		flip = false
+	end
 	pal(11, self.skin)
 	pal(10, self.hair)
 	pal(14, self.shirt)
@@ -571,6 +551,7 @@ function desk.create(settings)
 	local d = desk.new(settings)
 	local c = create_chair(d.tile)
 	d.chair = c
+	add(graph[d.tile].occupants, d)
 	add(background, c)
 	add(furniture, d)
 	add(forground, d)
@@ -611,6 +592,7 @@ function create_plant(tile)
 		draw = draw_thing,
 		sprite = sample(plant_sprites)
 	}
+	add(graph[tile].occupants, p)
 	add(plants, p)
 	add(forground, p)
 end
@@ -780,18 +762,45 @@ function draw_selection(cursor)
 		return
 	end
 
-	if selection.type == 'worker' then
-		draw_worker_ui(selection)
-	end
+	ui_drawers[selection.type](selection)
 end
 
 function draw_worker_ui(worker, offset)
 	offset = offset or 0
-	margin = 1
+	local margin = 1
 	print(worker.name, (2 + offset) * 8, margin, 7)
-	worker:draw((6 + offset) * 8 - margin, margin, 2)
+	worker:draw((6 + offset) * 8 - margin, margin, 2, true)
 	print(worker.task, (2 + offset) * 8, 2 * 8, 7)
 end
+
+function draw_plant_ui(plant, offset)
+	offset = offset or 0
+	local margin = 1
+	print('a plant', (offset * 8) + margin, margin, 7)
+	zspr(plant.sprite, 1, 1, (6 + offset) * 8 - margin, margin, 2)
+	print('how nice', (offset * 8) + margin, 2 * 8, 7)
+end
+
+function draw_desk_ui(desk, offset)
+	offset = offset or 0
+	local margin = 1
+	print('unowned desk', (offset * 8) + margin, margin, 7)
+	zspr(desk_sprite, 1, 1, (4 + offset) * 8, margin, 2)
+	zspr(desk_sprite + 1, 1, 1, (6 + offset) * 8, margin, 2)
+	-- print('how nice', (offset * 8) + margin, 2 * 8, 7)
+	local w_x = (offset * 8)
+	local w_y = 2 * 8
+	for w in all(actors) do
+		w:draw(w_x, w_y)
+		w_x += 8
+	end
+end
+
+ui_drawers = {
+	worker = draw_worker_ui,
+	plant = draw_plant_ui,
+	desk = draw_desk_ui,
+}
 
 -- cursor
 cursor_sprite = 31
@@ -812,6 +821,7 @@ function create_cursor(player)
 		check_select = check_select,
 		clr = cursor_colors[player],
 		selection = nil,
+		selection_index = 0,
 		scroll_ticks = 0
 	}
 end
@@ -821,12 +831,14 @@ function update_cursor(self)
 	self:check_move_cursor()
 end
 
+local selectable = {'worker', 'plant', 'desk'}
 function check_select(self)
 	local bo=btn(4, self.player) -- select
 	local bx=btn(5, self.player) -- unselect
 
 	if bx then -- unselect button
 		self.selection = nil
+		self.selection_index = 0
 		return
 	end
 	
@@ -835,7 +847,7 @@ function check_select(self)
 	end
 
 	for o in all(graph[self.tile].occupants) do
-		if o.type == 'worker' then
+		if includes(selectable, o.type) then
 			self.selection = o
 			return
 		end

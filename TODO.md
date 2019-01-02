@@ -6,16 +6,19 @@ DWARF OFFICE TODO
 
 - [x] worker sprite gen
 - [ ] paperwork task
+- [ ] admire plant task
 - [v] socializing
 - [x] drawing furniture
-- [ ] work out UI
+- [x] work out UI
 - [x] selecting
 	- [ ] OO cursor
+- [ ] happiness model
 - [ ] assigning jobs
 - [ ] assigning desks
 - [ ] building
 - [ ] emoting
 - [ ] OO timers
+- [ ] redo walls?
 
 Task Manager
 ============
