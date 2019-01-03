@@ -14,29 +14,32 @@ printh("\n\n-------\n-".. names[flr(rnd(#names))+1] .. "-\n-------")
 -- sounds
 
 -- game state
-actors = {} -- workers and stuff
+workers = {} -- workers and stuff
 furniture = {} -- desks etc
 plants = {} -- plants
 copiers = {} -- copiers
-background = {} -- stuff to draw behind the actors
-forground = {} -- stuff to draw in front of the actors
+background = {} -- stuff to draw behind the workers
+forground = {} -- stuff to draw in front of the workers
 graph = {} -- graph for navigating around the play area
 active_tasks = {} --
 cursors = {}
 
 function _init()
 	graph = generate_graph()
-	generate_furniture()
 	generate_workers()
+	generate_furniture()
 	generate_cursors()
-	add(active_tasks, create_socialize_task(actors[1], actors[2]))
+	add(active_tasks, create_socialize_task(workers[1], workers[2]))
 end
 
 function generate_furniture()
+	local worker_index = 1
 	for t in all({17, 141}) do
 		desk.create({
-			tile = t
+			tile = t,
+			owner = workers[worker_index]
 		})
+		worker_index += 1
 	end
 	for t in all({43, 100}) do
 		create_plant(t)
@@ -67,8 +70,8 @@ function _update()
 	for t in all(active_tasks) do
 		t:update()
 	end
-	for a in all(actors) do
-		a:update()
+	for w in all(workers) do
+		w:update()
 	end
 	for c in all(cursors) do
 		c:update()
@@ -83,8 +86,8 @@ function _draw()
 	for b in all(background) do
 		b:draw()
 	end
-	for a in all(actors) do
-		a:draw()
+	for w in all(workers) do
+		w:draw()
 	end
 	for f in all(forground) do
 		f:draw()
@@ -92,7 +95,7 @@ function _draw()
 	for c in all(cursors) do
 		c:draw()
 	end
-	-- draw_path(actors[1].path)
+	-- draw_path(workers[1].path)
 	draw_ui()
 end
 
@@ -420,7 +423,7 @@ function worker.create(settings)
 
 	local w = worker.new(settings)
 	add(graph[settings.tile].occupants, w)
-	add(actors, w)
+	add(workers, w)
 end
 
 function worker:draw(x, y, scale, no_flip)
@@ -438,10 +441,8 @@ function worker:draw(x, y, scale, no_flip)
 	pal(12, self.tie)
 
 	for sp in all({self.head, self.body}) do
-		zspr(sp, 1, 1, x, y, scale, self.flip_facing)
+		zspr(sp, 1, 1, x, y, scale, flip)
 	end
-	--spr(self.body, x, y, 1, 1, self.flip_facing)
-	--spr(self.head, x, y, 1, 1, self.flip_facing)
 	pal()
 end
 
@@ -773,27 +774,34 @@ function draw_worker_ui(worker, offset)
 	print(worker.task, (2 + offset) * 8, 2 * 8, 7)
 end
 
+function draw_desk_ui(desk, offset)
+	offset = offset or 0
+	local margin = 1
+	local owner = desk.owner
+	local label = 'unowned'
+	if owner and owner.name then
+		label = owner.name .. "'s"
+	end
+	print(label ..' desk', (offset * 8) + margin, margin, 7)
+	zspr(desk_sprite, 1, 1, (4 + offset) * 8, margin, 2)
+	zspr(desk_sprite + 1, 1, 1, (6 + offset) * 8, margin, 2)
+	local w_x = (offset * 8)
+	local w_y = 2 * 8
+	for w in all(workers) do
+		w:draw(w_x, w_y, 1, true)
+		if owner == w then
+			spr(cursor_sprite, w_x, w_y)
+		end
+		w_x += 8
+	end
+end
+
 function draw_plant_ui(plant, offset)
 	offset = offset or 0
 	local margin = 1
 	print('a plant', (offset * 8) + margin, margin, 7)
 	zspr(plant.sprite, 1, 1, (6 + offset) * 8 - margin, margin, 2)
 	print('how nice', (offset * 8) + margin, 2 * 8, 7)
-end
-
-function draw_desk_ui(desk, offset)
-	offset = offset or 0
-	local margin = 1
-	print('unowned desk', (offset * 8) + margin, margin, 7)
-	zspr(desk_sprite, 1, 1, (4 + offset) * 8, margin, 2)
-	zspr(desk_sprite + 1, 1, 1, (6 + offset) * 8, margin, 2)
-	-- print('how nice', (offset * 8) + margin, 2 * 8, 7)
-	local w_x = (offset * 8)
-	local w_y = 2 * 8
-	for w in all(actors) do
-		w:draw(w_x, w_y)
-		w_x += 8
-	end
 end
 
 ui_drawers = {
