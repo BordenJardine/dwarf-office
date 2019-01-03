@@ -35,10 +35,12 @@ end
 function generate_furniture()
 	local worker_index = 1
 	for t in all({17, 141}) do
-		desk.create({
+		local o = workers[worker_index]
+		local d = desk.create({
 			tile = t,
-			owner = workers[worker_index]
+			owner = o
 		})
+		o.desk = d
 		worker_index += 1
 	end
 	for t in all({43, 100}) do
@@ -113,6 +115,17 @@ end
 -- retrieve random table entry
 function sample(t)
 	return t[flr(rnd(#t))+1]
+end
+
+-- sub list meeting criteria supplied in function
+function select(t, f)
+	local list = {}
+	for v in all(t) do
+		if f(v) then
+			add(list, v)
+		end
+	end
+	return list
 end
 
 -- insert into table and sort by priority
@@ -556,6 +569,7 @@ function desk.create(settings)
 	add(background, c)
 	add(furniture, d)
 	add(forground, d)
+	return d
 end
 
 function desk.new(settings)
@@ -787,7 +801,10 @@ function draw_desk_ui(desk, offset)
 	zspr(desk_sprite + 1, 1, 1, (6 + offset) * 8, margin, 2)
 	local w_x = (offset * 8)
 	local w_y = 2 * 8
-	for w in all(workers) do
+	local valid_workers = select(workers, function(w)
+		return w.desk == nil or w.desk == desk
+	end)
+	for w in all(valid_workers) do
 		w:draw(w_x, w_y, 1, true)
 		if owner == w then
 			spr(cursor_sprite, w_x, w_y)
