@@ -79,6 +79,8 @@ function _update()
 		c:update()
 	end
 	update_idle_timer()
+
+	update_uis()
 end
 
 function _draw()
@@ -395,7 +397,7 @@ ties = {
 
 name_parts = {
 	'jor', 'eth', 'ken', 'di', 'car', 'yuk', 'ist', 'ur',
-	'jon', 'bil', 'liv', 'iv',  'ma',  'at', 'cor'
+	'jon', 'bil', 'liv', 'iv',  'ma',  'at', 'cor', 'hek', 'zoe'
 }
 
 worker = {
@@ -432,7 +434,13 @@ function worker.create(settings)
 	settings.hair = settings.hair or sample(hairs)
 	settings.shirt = settings.shirt or sample(shirts)
 	settings.tie = settings.ties or sample(ties)
-	settings.name = sample(name_parts) .. sample(name_parts)
+	settings.name = settings.names or ''
+
+	-- one or two name_parts smooshed together
+	local num_parts = flr(rnd(2))+1
+	for i=0,num_parts do
+		settings.name = settings.name .. sample(name_parts)
+	end
 
 	local w = worker.new(settings)
 	add(graph[settings.tile].occupants, w)
@@ -472,6 +480,7 @@ function worker.new(settings)
 end
 
 function worker:update()
+	self.update_timer(self)
 	self:update_timer()
 	self:update_task()
 	self:move()
@@ -582,6 +591,13 @@ function desk:draw()
 	spr(desk_sprite, x, y)
 	-- desks have 2 parts
 	spr(tray_sprite, x + 8, y)
+end
+
+function desk:valid_workers()
+	-- TODO: cache this
+	return select(workers, function(w)
+		return w.desk == nil or w.desk == self
+	end)
 end
 
 function create_chair(tile)
@@ -765,9 +781,49 @@ end
 -->8
 -- ui
 
+function update_uis()
+	for c in all(cursors) do
+		update_ui(c)
+	end
+end
+
+function update_ui(cursor)
+	local selection = cursor.selection
+	if selection and selection.type == 'desk' then
+		update_desk_ui(selection, cursor.player)
+	end
+end
+
+function update_desk_ui(desk, player)
+	local bl=btn(0, player)
+	local br=btn(1, player)
+	if not (bl or br) then
+		return
+	end
+	local valid_workers = desk:valid_workers()
+	local current_worker_index = 0
+	for i=1,#valid_workers do
+		if desk.owner == valid_workers[i] then
+			current_worker_index = i
+			break
+		end
+	end
+	if bl and current_worker_index <= 1 then
+		return
+	end
+	if br and current_worker_index >= #valid_workers then
+		return
+	end
+	local offset = bl and -1 or 1
+	valid_workers[current_worker_index].desk = nil
+	local new_owner = valid_workers[current_worker_index + offset]
+	new_owner.desk = desk
+	desk.owner = new_owner
+end
+
 function draw_ui()
-	for s in all(cursors) do
-		draw_selection(s)
+	for c in all(cursors) do
+		draw_selection(c)
 	end
 end
 
@@ -801,10 +857,7 @@ function draw_desk_ui(desk, offset)
 	zspr(desk_sprite + 1, 1, 1, (6 + offset) * 8, margin, 2)
 	local w_x = (offset * 8)
 	local w_y = 2 * 8
-	local valid_workers = select(workers, function(w)
-		return w.desk == nil or w.desk == desk
-	end)
-	for w in all(valid_workers) do
+	for w in all(desk:valid_workers()) do
 		w:draw(w_x, w_y, 1, true)
 		if owner == w then
 			spr(cursor_sprite, w_x, w_y)
