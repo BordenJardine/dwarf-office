@@ -64,7 +64,7 @@ end
 
 function generate_cursors()
 	for i=1,2 do
-		add(cursors, create_cursor(i))
+		add(cursors, cursor.create(i))
 	end
 end
 
@@ -358,6 +358,8 @@ end
 -- worker 'class'
 
 default_step_time = 4
+
+nobody_sprite = 14
 
 heads = { 0,1,2,3,4 }
 
@@ -790,16 +792,15 @@ end
 function update_ui(cursor)
 	local selection = cursor.selection
 	if selection and selection.type == 'desk' then
-		update_desk_ui(selection, cursor.player)
+		update_desk_ui(selection, cursor)
 	end
 end
 
-function update_desk_ui(desk, player)
-	local bl=btn(0, player)
-	local br=btn(1, player)
-	if not (bl or br) then
-		return
-	end
+function update_desk_ui(desk, cursor)
+	-- scroll throttling
+	if (not cursor:check_scroll_ticks()) return
+	local bl=btn(0, cursor.player)
+	local br=btn(1, cursor.player)
 	local valid_workers = desk:valid_workers()
 	local current_worker_index = 0
 	for i=1,#valid_workers do
@@ -808,14 +809,17 @@ function update_desk_ui(desk, player)
 			break
 		end
 	end
+	local current_worker = valid_workers[current_worker_index]
 	if bl and current_worker_index <= 1 then
+		if (current_worker) current_worker.desk = nil
+		desk.owner = nil
 		return
 	end
 	if br and current_worker_index >= #valid_workers then
 		return
 	end
 	local offset = bl and -1 or 1
-	valid_workers[current_worker_index].desk = nil
+	if (current_worker) current_worker.desk = nil
 	local new_owner = valid_workers[current_worker_index + offset]
 	new_owner.desk = desk
 	desk.owner = new_owner
@@ -855,8 +859,14 @@ function draw_desk_ui(desk, offset)
 	print(label ..' desk', (offset * 8) + margin, margin, 7)
 	zspr(desk_sprite, 1, 1, (4 + offset) * 8, margin, 2)
 	zspr(desk_sprite + 1, 1, 1, (6 + offset) * 8, margin, 2)
-	local w_x = (offset * 8)
+	local w_x = (offset * 8) + 8
 	local w_y = 2 * 8
+	-- empty sprite
+	spr(nobody_sprite, w_x, w_y)
+	if owner == nil then
+		spr(cursor_sprite, w_x, w_y)
+	end
+	w_x += 8
 	for w in all(desk:valid_workers()) do
 		w:draw(w_x, w_y, 1, true)
 		if owner == w then
@@ -887,30 +897,35 @@ cursor_colors = {
 	5,
 	15
 }
-scroll_throttle_ticks = 3
 
-function create_cursor(player)
-	return {
-		player = player,
-		tile = player == 1 and min_tile or max_tile,
-		draw = draw_cursor,
-		update = update_cursor,
-		check_move_cursor = check_move_cursor,
-		check_select = check_select,
-		clr = cursor_colors[player],
-		selection = nil,
-		selection_index = 0,
-		scroll_ticks = 0
-	}
+scroll_throttle_ticks = 3
+cursor = {
+	player = 1,
+	tile = player == 1 and min_tile or max_tile,
+	selection = nil,
+	selection_index = 0,
+	scroll_ticks = 0
+}
+function cursor.new(settings)
+	local c = setmetatable((settings or {}), { __index = cursor })
+	return c
 end
 
-function update_cursor(self)
+function cursor.create(player)
+	return cursor.new({
+		player = player,
+		clr = cursor_colors[player],
+		tile = player == 1 and min_tile or max_tile,
+	})
+end
+
+function cursor:update()
 	self:check_select()
-	self:check_move_cursor()
+	self:check_move()
 end
 
 local selectable = {'worker', 'plant', 'desk'}
-function check_select(self)
+function cursor:check_select()
 	local bo=btn(4, self.player) -- select
 	local bx=btn(5, self.player) -- unselect
 
@@ -932,30 +947,40 @@ function check_select(self)
 	end
 end
 
-function check_move_cursor(self)
+function cursor:check_scroll_ticks()
+	local bl=btn(0, self.player)
+	local br=btn(1, self.player)
+	local bu=btn(2, self.player)
+	local bd=btn(3, self.player)
+	if not (bl or br or bu or bd) then
+		self.scroll_ticks = 0
+		return false
+	end
+	self.scroll_ticks += 1
+	if self.scroll_ticks == 1 then
+		return true
+	end
+	if self.scroll_ticks > scroll_throttle_ticks then
+		self.scroll_ticks = 0
+	end
+	return false
+end
+
+function cursor:check_move()
+	-- the selected object(worker) might have moved
 	if self.selection then
 		self.tile = self.selection.tile
 		return
 	end
+
+	-- scroll throttling
+	if (not self:check_scroll_ticks()) return
+
 	local pos = tile_to_pos(self.tile)
 	local bl=btn(0, self.player)
 	local br=btn(1, self.player)
 	local bu=btn(2, self.player)
 	local bd=btn(3, self.player)
-
-	-- scroll throttling
-	-- TODO this is a mess!
-	if not (bl or br or bu or bd) then
-		self.scroll_ticks = 0
-		return
-	end
-	self.scroll_ticks += 1
-	if self.scroll_ticks > scroll_throttle_ticks then
-		self.scroll_ticks = 0
-	end
-	if self.scroll_ticks != 1 then
-		return
-	end
 
 	if bl and pos.x > min_x then
 		pos.x -= 1
@@ -970,7 +995,7 @@ function check_move_cursor(self)
 	self.tile = pos_to_tile(pos)
 end
 
-function draw_cursor(self)
+function cursor:draw()
 	local pos = graph[self.tile].pos
 	local x = x or (pos.x * 8)
 	local y = y or (pos.y * 8)
@@ -1030,14 +1055,14 @@ end
 --]]
 
 __gfx__
-00aaaa0000aaaa0000aaaa00000bb00000aaaa000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00abaa000aabaa0000abbb0000bbbb00aabbbb000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0b5bb5000b5bb5000b5bb5000b5bb500ab5bb5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00aaaa00aabbbb0000bbbb0000bbbb0000bbbb000000000000000000000000000000000000000000000000000000000000000000000000000000000000028000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008e000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00aaaa0000aaaa0000aaaa00000bb00000aaaa0000000000000000000000000000000000000000000000000000000000000000000000000000dddd0000000000
+00abaa000aabaa0000abbb0000bbbb00aabbbb0000000000000000000000000000000000000000000000000000000000000000000000000000dddd0000000000
+0b5bb5000b5bb5000b5bb5000b5bb500ab5bb5000000000000000000000000000000000000000000000000000000000000000000000000000ddddd0000000000
+00aaaa00aabbbb0000bbbb0000bbbb0000bbbb0000000000000000000000000000000000000000000000000000000000000000000000000000d7d70000028000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ddd7d000008e000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dd7d70000000000
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dddd0000000000
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d00d0000000000
 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000777700bb0000bb
 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b000000b
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007000000700000000
