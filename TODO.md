@@ -22,7 +22,6 @@ DWARF OFFICE TODO
 
 Task Manager
 ============
-
 Global task manager methods.
 list of taks that need doing.
 workers have current task.
@@ -31,12 +30,36 @@ idle workers check for new tasks.
 tasks have steps.
 tasks have path targets.
 
+Admire Plant Task
+=================
+- Select Plant
+- Move To Plant
+- Stand Near plant for X ticks
+- fin
 
-Worker:
-if task is idle
+Paperwork Task
+==============
+- Move To Desk
+- Stand at desk for X ticks
+- Move to outbox
+- fin
+
+Paperwork tast Mk II
+====================
+- get paper
+	- Move to paper shelf
+	- pick up paper
+	- Move to
+
 
 UIs
 ===
+- [ ] idle dashboard
+- [ ] worker
+- [ ] desk
+- [ ] plant
+- [ ] outbox
+
 
 Screens
 =======

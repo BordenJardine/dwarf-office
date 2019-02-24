@@ -53,13 +53,9 @@ end
 
 function generate_workers()
 	for i=1,2 do
-		worker.create({
-			tile = random_spot()
-		})
+		worker.create({ tile = random_spot() })
 	end
-	worker.create({
-		tile = 17
-	})
+	worker.create({ tile = 17 })
 end
 
 function generate_cursors()
@@ -78,7 +74,6 @@ function _update()
 	for c in all(cursors) do
 		c:update()
 	end
-	update_idle_timer()
 
 	update_uis()
 end
@@ -106,7 +101,38 @@ end
 -->8
 -- helper stuff
 
--- tables
+-- timer class
+timer = {
+	max = 0,
+	current = 0,
+	done = false
+}
+function timer.new(max)
+	local t = setmetatable({}, { __index = timer })
+	t.max = max or 0
+	t.current = t.max
+	return t
+end
+
+function timer:update()
+	if self.current > 0 then
+		self.current -= 1
+	else
+		self.done = true
+	end
+end
+
+function timer:finish()
+	self.current = 0
+	self.done = true
+end
+
+function timer:reset()
+	self.current = self.max
+	self.done = false
+end
+
+-- table helpers
 function includes(tab, val)
 	for v in all(tab) do
 		if(v == val) return true
@@ -358,6 +384,7 @@ end
 -- worker 'class'
 
 default_step_time = 4
+default_idle_time = 5 * 30 -- 5 seconds
 
 nobody_sprite = 14
 
@@ -420,13 +447,8 @@ worker = {
 	desk = nil,
 	path_index = 0,
 	flip_facing = false,
-	step_timer = default_step_time,
-	max_step_time = default_step_time
+	step_timer = nil,
 }
-
-function worker.new(settings)
-	return setmetatable((settings or {}), { __index = worker })
-end
 
 function worker.create(settings)
 	settings = settings or {}
@@ -439,7 +461,7 @@ function worker.create(settings)
 	settings.name = settings.names or ''
 
 	-- one or two name_parts smooshed together
-	local num_parts = flr(rnd(2))+1
+	local num_parts = flr(rnd(3))
 	for i=0,num_parts do
 		settings.name = settings.name .. sample(name_parts)
 	end
@@ -447,6 +469,39 @@ function worker.create(settings)
 	local w = worker.new(settings)
 	add(graph[settings.tile].occupants, w)
 	add(workers, w)
+end
+
+function worker.new(settings)
+	local w = setmetatable((settings or {}), { __index = worker })
+	w.step_timer = timer.new(default_step_time)
+	w.idle_timer = timer.new(default_idle_time)
+	return w
+end
+
+function worker:update()
+	self:update_timers()
+	self:update_task()
+	self:move()
+end
+
+function worker:update_timers()
+	self.step_timer:update()
+end
+
+function worker:update_task()
+	if self.task == 'idle' then
+		self:update_idle()
+	end
+end
+
+function worker:update_idle()
+	if (not self.idle_timer.done) return
+	local tile = sample(graph[self.tile].neighbors)
+	local n = rnd(3)
+	if n > 1 and #graph[tile].occupants < 1 then
+		self:move_to(tile, 1)
+	end
+	self.idle_timer:reset()
 end
 
 function worker:draw(x, y, scale, no_flip)
@@ -469,46 +524,6 @@ function worker:draw(x, y, scale, no_flip)
 	pal()
 end
 
-function worker:update_timer()
-	self.step_timer -= 1
-	if self.step_timer < 0 then
-		self.step_timer = self.max_step_time
-	end
-end
-
-function worker.new(settings)
-	local w = setmetatable((settings or {}), { __index = worker })
-	return w
-end
-
-function worker:update()
-	self.update_timer(self)
-	self:update_timer()
-	self:update_task()
-	self:move()
-end
-
-function worker:update_timer()
-	self.step_timer -= 1
-	if self.step_timer < 0 then
-		self.step_timer = self.max_step_time
-	end
-end
-
-function worker:update_task()
-	if self.task ~= 'idle' then
-		return
-	end
-	if (idle_ticks > 0) then
-		return
-	end
-	local tile = sample(graph[self.tile].neighbors)
-	local n = rnd(3)
-	if n > 1 and #graph[tile].occupants < 1 then
-		self:move_to(tile, 1)
-	end
-end
-
 function worker:chat()
 	self.action = 'chatting'
 end
@@ -525,7 +540,10 @@ function worker:move_to(tile, prox)
 end
 
 function worker:move()
-	if (self.step_timer != 0 or self.action != 'walking' or #self.path < 1) return
+	if (not self.step_timer.done) or self.action != 'walking' or #self.path < 1 then
+		return
+	end
+	self.step_timer:reset()
 	local current_node = graph[self.tile]
 	self.tile = popend(self.path)
 	local new_node = graph[self.tile]
@@ -543,6 +561,7 @@ function worker:move()
 	end
 end
 
+-- TODO: do we need this?
 function worker:uncrowd()
 	local current_node = graph[self.tile]
 	if #current_node.occupants < 1 then
@@ -654,13 +673,12 @@ end
 
 unassigned_tasks = {}
 
-default_task_ticks = 30 * 30 -- 30 seconds
+default_task_time = 30 * 30 -- 30 seconds
 -- global timer for idle workers wandering around
-max_idle_ticks = 5 * 30 -- 5 seconds
-idle_ticks = max_idle_ticks
 
 -- socialize
 
+-- TODO: make this a propper class
 function create_socialize_task(a1, a2)
 	return task.new({
 		name = 'socializing',
@@ -700,9 +718,9 @@ function socialize_traveling(self)
 	end
 
 	-- we might be oscillating. hang on a sec
-	if self.ticks < default_task_ticks - 30 * 2 then
+	if self.timer.current < default_task_time - 30 * 2 then
 		w2:wait()
-	elseif self.ticks % 15 == 0 then
+	elseif self.timer.current % 15 == 0 then
 	-- correct path every half second
 		w1:move_to(w2.tile)
 		w2:move_to(w1.tile)
@@ -730,7 +748,7 @@ end
 
 task = {
 	name = 'working',
-	ticks = default_task_ticks, -- 30 secs
+	timer = nil,
 	state = 1,
 	states = {
 		'unclaimed',
@@ -752,14 +770,16 @@ function task:complete()
 end
 
 function task.new(settings)
-	return setmetatable((settings or {}), { __index = task })
+	local t = setmetatable((settings or {}), { __index = task })
+	t.timer = timer.new(default_task_time)
+	return t
 end
 
 function task:update()
 	local state = self.states[self.state]
 	if state == 'unclaimed' then return end
-	self.ticks -= 1
-	if self.ticks < 1 then
+	self.timer:update()
+	if self.timer.done then
 		self.state = #self.states --abort
 		return
 	end
@@ -770,16 +790,9 @@ end
 
 function task:advance()
 	self.state += 1
-	self.ticks = default_task_ticks
+	self.timer:reset()
 end
 
-
-function update_idle_timer()
-	idle_ticks -= 1
-	if idle_ticks < 0 then
-		idle_ticks = max_idle_ticks
-	end
-end
 -->8
 -- ui
 
@@ -798,7 +811,7 @@ end
 
 function update_desk_ui(desk, cursor)
 	-- scroll throttling
-	if (not cursor:check_scroll_ticks()) return
+	if (not cursor:check_scroll_timer()) return
 	local bl=btn(0, cursor.player)
 	local br=btn(1, cursor.player)
 	local valid_workers = desk:valid_workers()
@@ -898,16 +911,17 @@ cursor_colors = {
 	15
 }
 
-scroll_throttle_ticks = 3
+scroll_throttle_time = 3
 cursor = {
 	player = 1,
 	tile = player == 1 and min_tile or max_tile,
 	selection = nil,
 	selection_index = 0,
-	scroll_ticks = 0
+	scroll_timer = nil
 }
 function cursor.new(settings)
 	local c = setmetatable((settings or {}), { __index = cursor })
+	c.scroll_timer = timer.new(scroll_throttle_time)
 	return c
 end
 
@@ -947,22 +961,20 @@ function cursor:check_select()
 	end
 end
 
-function cursor:check_scroll_ticks()
+function cursor:check_scroll_timer()
 	local bl=btn(0, self.player)
 	local br=btn(1, self.player)
 	local bu=btn(2, self.player)
 	local bd=btn(3, self.player)
 	if not (bl or br or bu or bd) then
-		self.scroll_ticks = 0
+		self.scroll_timer:finish()
 		return false
 	end
-	self.scroll_ticks += 1
-	if self.scroll_ticks == 1 then
+	if self.scroll_timer.done then
+		self.scroll_timer:reset()
 		return true
 	end
-	if self.scroll_ticks > scroll_throttle_ticks then
-		self.scroll_ticks = 0
-	end
+	self.scroll_timer:update()
 	return false
 end
 
@@ -974,7 +986,7 @@ function cursor:check_move()
 	end
 
 	-- scroll throttling
-	if (not self:check_scroll_ticks()) return
+	if (not self:check_scroll_timer()) return
 
 	local pos = tile_to_pos(self.tile)
 	local bl=btn(0, self.player)
