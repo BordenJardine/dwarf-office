@@ -79,7 +79,7 @@ function worker:update()
 	self:update_timers()
 	self:update_task()
 	self:move()
-	self:update_sprite_pos()
+	update_sprite_pos(self.sprite_pos, self.tile)
 end
 
 function worker:update_timers()
@@ -156,19 +156,6 @@ function worker:move()
 		self.flip_facing = true
 	else
 		self.flip_facing = false
-	end
-end
-
-local speed = 2
-function worker:update_sprite_pos()
-	local target_pos = tile_to_pos(self.tile)
-
-	for n in all({'x', 'y'}) do
-		if self.sprite_pos[n] < target_pos[n] * 8 then
-			self.sprite_pos[n] += speed
-		elseif self.sprite_pos[n] > target_pos[n] * 8 then
-			self.sprite_pos[n] -= speed
-		end
 	end
 end
 

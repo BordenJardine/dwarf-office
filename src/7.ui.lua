@@ -146,23 +146,8 @@ end
 function cursor:update()
 	self:check_select()
 	self:check_move()
-	self:update_sprite_pos()
+	update_sprite_pos(self.sprite_pos, self.tile)
 end
-
-local speed = 2
---TODO dry vs worker:update_sprite_pos
-function cursor:update_sprite_pos()
-	local target_pos = tile_to_pos(self.tile)
-
-	for n in all({'x', 'y'}) do
-		if self.sprite_pos[n] < target_pos[n] * 8 then
-			self.sprite_pos[n] += speed
-		elseif self.sprite_pos[n] > target_pos[n] * 8 then
-			self.sprite_pos[n] -= speed
-		end
-	end
-end
-
 
 local selectable = {'worker', 'plant', 'desk'}
 function cursor:check_select()

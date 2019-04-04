@@ -453,6 +453,20 @@ function random_spot()
 	end
 end
 
+local speed = 2
+-- fancy smooth sprite movement
+function update_sprite_pos(sprite_pos, target_tile)
+	local target_pos = tile_to_pos(target_tile)
+
+	for n in all({'x', 'y'}) do
+		if sprite_pos[n] < target_pos[n] * 8 then
+			sprite_pos[n] += speed
+		elseif sprite_pos[n] > target_pos[n] * 8 then
+			sprite_pos[n] -= speed
+		end
+	end
+end
+
 -- debug stuff. delete for tokens
 function draw_indicies()
 	for node in all(graph) do
@@ -484,6 +498,7 @@ function print_tile(t)
 	local pos = graph(t).pos
 	printh('tile: ' .. t .. ' x,y: ' .. pos.x .. ',' .. pos.y)
 end
+
 -->8
 -- worker 'class'
 
@@ -565,7 +580,7 @@ function worker:update()
 	self:update_timers()
 	self:update_task()
 	self:move()
-	self:update_sprite_pos()
+	update_sprite_pos(self.sprite_pos, self.tile)
 end
 
 function worker:update_timers()
@@ -642,19 +657,6 @@ function worker:move()
 		self.flip_facing = true
 	else
 		self.flip_facing = false
-	end
-end
-
-local speed = 2
-function worker:update_sprite_pos()
-	local target_pos = tile_to_pos(self.tile)
-
-	for n in all({'x', 'y'}) do
-		if self.sprite_pos[n] < target_pos[n] * 8 then
-			self.sprite_pos[n] += speed
-		elseif self.sprite_pos[n] > target_pos[n] * 8 then
-			self.sprite_pos[n] -= speed
-		end
 	end
 end
 
@@ -1139,23 +1141,8 @@ end
 function cursor:update()
 	self:check_select()
 	self:check_move()
-	self:update_sprite_pos()
+	update_sprite_pos(self.sprite_pos, self.tile)
 end
-
-local speed = 2
---TODO dry vs worker:update_sprite_pos
-function cursor:update_sprite_pos()
-	local target_pos = tile_to_pos(self.tile)
-
-	for n in all({'x', 'y'}) do
-		if self.sprite_pos[n] < target_pos[n] * 8 then
-			self.sprite_pos[n] += speed
-		elseif self.sprite_pos[n] > target_pos[n] * 8 then
-			self.sprite_pos[n] -= speed
-		end
-	end
-end
-
 
 local selectable = {'worker', 'plant', 'desk'}
 function cursor:check_select()

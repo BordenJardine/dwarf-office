@@ -145,6 +145,20 @@ function random_spot()
 	end
 end
 
+local speed = 2
+-- fancy smooth sprite movement
+function update_sprite_pos(sprite_pos, target_tile)
+	local target_pos = tile_to_pos(target_tile)
+
+	for n in all({'x', 'y'}) do
+		if sprite_pos[n] < target_pos[n] * 8 then
+			sprite_pos[n] += speed
+		elseif sprite_pos[n] > target_pos[n] * 8 then
+			sprite_pos[n] -= speed
+		end
+	end
+end
+
 -- debug stuff. delete for tokens
 function draw_indicies()
 	for node in all(graph) do
@@ -176,3 +190,4 @@ function print_tile(t)
 	local pos = graph(t).pos
 	printh('tile: ' .. t .. ' x,y: ' .. pos.x .. ',' .. pos.y)
 end
+
