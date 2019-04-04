@@ -673,7 +673,7 @@ task = {
 		'traveling',
 		'running',
 		'complete',
-		'aborted',
+		'abort',
 	}
 }
 function task.new(settings)
@@ -713,7 +713,7 @@ function task:complete()
 	del(active_tasks, self)
 end
 
-function task:aborted()
+function task:abort()
 	del(active_tasks, self)
 end
 
@@ -735,6 +735,7 @@ function create_paperwork_task(worker)
 		travel_to_desk = travel_to_desk,
 		desking = desking,
 		complete = paperwork_complete,
+		abort = paperwork_abort,
 		states = {
 			'init',
 			'travel_to_copier',
@@ -743,7 +744,7 @@ function create_paperwork_task(worker)
 			'desking',
 			-- 'travel_to_outbox',
 			'complete',
-			'aborted'
+			'abort'
 		}
 	})
 	t:init()
@@ -766,7 +767,9 @@ function printing(self)
 	local t = self.print_timer
 	t:update()
 	if t.done then
-		-- TODO: what if there is no desk?!
+		 if not self.worker.desk then
+			return self:abort()
+		 end
 		self.worker:move_to(self.worker.desk.tile, 1)
 		self:advance()
 	end
@@ -792,6 +795,12 @@ function paperwork_complete(self)
 	task.complete(self)
 end
 
+function paperwork_abort(self)
+	printh(self.name .. 'task aborted aborted by' .. self.worker.name .. '!')
+	self.worker.task = 'idle'
+	del(active_tasks, self)
+end
+
 -- socialize task
 
 -- TODO: make this a propper class
@@ -809,7 +818,7 @@ function create_socialize_task(a1, a2)
 			'arriving',
 			'running',
 			'complete',
-			'aborted'
+			'abort'
 		}
 	})
 	t:init()
