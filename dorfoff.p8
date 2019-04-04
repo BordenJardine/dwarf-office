@@ -2,6 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
 -- main
+
 names = {
 	"us sales operations",
 	"dwarf office",
@@ -202,8 +203,108 @@ function zspr(n,w,h,dx,dy,dz,f)
 	sspr(sx,sy,sw,sh, dx,dy,dw,dh,f)
 end
 
--->8
--- 2 map stuff
+-- helper stuff
+
+-- timer class
+timer = {
+	max = 0,
+	current = 0,
+	done = false
+}
+function timer.new(max)
+	local t = setmetatable({}, { __index = timer })
+	t.max = max or 0
+	t.current = t.max
+	return t
+end
+
+function timer:update()
+	if self.current > 0 then
+		self.current -= 1
+	else
+		self.done = true
+	end
+end
+
+function timer:finish()
+	self.current = 0
+	self.done = true
+end
+
+function timer:reset()
+	self.current = self.max
+	self.done = false
+end
+
+-- table helpers
+
+function includes(tab, val)
+	for v in all(tab) do
+		if(v == val) return true
+	end
+	return false
+end
+
+-- retrieve random table entry
+function sample(t)
+	return t[flr(rnd(#t))+1]
+end
+
+-- sub list meeting criteria supplied in function
+function select(t, f)
+	local list = {}
+	for v in all(t) do
+		if f(v) then
+			add(list, v)
+		end
+	end
+	return list
+end
+
+-- insert into table and sort by priority
+function insert(t, val, p)
+	if #t >= 1 then
+		add(t, {})
+		for i=(#t),2,-1 do
+			local next = t[i-1]
+			if p < next[2] then
+				t[i] = {val, p}
+				return
+			else
+				t[i] = next
+			end
+		end
+		t[1] = {val, p}
+	else
+		add(t, {val, p})
+	end
+end
+
+-- pop the last element off a table
+function popend(t)
+	local top = t[#t]
+	del(t,t[#t])
+	return top
+end
+
+-- math
+
+-- p1 and p2 are points
+function manhattan_distance(p1, p2)
+	return abs(p1.x - p2.x) + abs(p1.y - p2.y)
+end
+
+-- sprites
+function zspr(n,w,h,dx,dy,dz,f)
+	local sx = shl(band(n, 0x0f), 3)
+	local sy = shr(band(n, 0xf0), 1)
+	local sw = shl(w, 3)
+	local sh = shl(h, 3)
+	local dw = sw * dz
+	local dh = sh * dz
+	sspr(sx,sy,sw,sh, dx,dy,dw,dh,f)
+end
+-- map stuff
 
 ui_offset = 3
 min_tile = 0
@@ -380,10 +481,7 @@ function print_tile(t)
 	local pos = graph(t).pos
 	printh('tile: ' .. t .. ' x,y: ' .. pos.x .. ',' .. pos.y)
 end
-
-
--->8
--- 3 worker 'class'
+-- worker 'class'
 
 default_step_time = 4
 default_idle_time = 5 * 30 -- 5 seconds
@@ -553,8 +651,7 @@ function worker:uncrowd()
 	end
 end
 
--->8
--- 4 furniture
+-- furniture
 desk_sprite = 128
 chair_sprite = 160
 tray_sprite = 129
@@ -646,8 +743,7 @@ function draw_thing(self)
 		pos.y * 8
 	)
 end
--->8
--- 5 tasks
+-- tasks
 
 unassigned_tasks = {}
 
@@ -872,7 +968,6 @@ function socialize_complete(self)
 	task.complete(self)
 end
 
--->8
 -- 6 ui
 
 function update_uis()
@@ -1097,7 +1192,6 @@ function cursor:draw()
 	end
 	pal()
 end
-
 -->8
 -- 7 tests
 -- translation tests
@@ -1144,7 +1238,6 @@ for n in all(node.neighbors) do
 	printh('i:' .. n .. ' x,y: '.. posn.x .. ',' ..posn.y)
 end
 --]]
-
 __gfx__
 00aaaa0000aaaa0000aaaa00000bb00000aaaa0000000000000000000000000000000000000000000000000000000000000000000000000000dddd0000000000
 00abaa000aabaa0000abbb0000bbbb00aabbbb0000000000000000000000000000000000000000000000000000000000000000000000000000dddd0000000000
