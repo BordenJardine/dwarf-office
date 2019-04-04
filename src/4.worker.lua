@@ -19,13 +19,14 @@ ties = { 2, 8, 12, 14 }
 
 name_parts = {
 	'jor', 'eth', 'ken', 'di', 'car', 'yuk', 'ist', 'ur',
-	'jon', 'bil', 'liv', 'iv',  'ma',  'at', 'cor', 'hek', 'zoe'
+	'jon', 'bil', 'liv', 'iv', 'ma', 'at', 'cor', 'hek', 'zoe'
 }
 
 worker = {
 	type = 'worker',
 	player = 0,
 	tile = 0,
+	sprite_pos = nil,
 	name = 'foo',
 	body = bodies[1],
 	head = heads[1],
@@ -52,6 +53,8 @@ function worker.create(settings)
 	settings.shirt = settings.shirt or sample(shirts)
 	settings.tie = settings.ties or sample(ties)
 	settings.name = settings.names or ''
+	local pos = tile_to_pos(settings.tile)
+	settings.sprite_pos = point(pos.x * 8, pos.y * 8)
 
 	-- one or two name_parts smooshed together
 	local num_parts = flr(rnd(3))
@@ -75,6 +78,7 @@ function worker:update()
 	self:update_timers()
 	self:update_task()
 	self:move()
+	self:update_sprite_pos()
 end
 
 function worker:update_timers()
@@ -98,9 +102,9 @@ function worker:update_idle()
 end
 
 function worker:draw(x, y, scale, no_flip)
-	local pos = graph[self.tile].pos
-	local x = x or (pos.x * 8)
-	local y = y or (pos.y * 8)
+	local pos = self.sprite_pos
+	local x = x or pos.x
+	local y = y or pos.y
 	local scale = scale or 1
 	local flip = self.flip_facing
 	if no_flip then
@@ -152,6 +156,32 @@ function worker:move()
 	else
 		self.flip_facing = false
 	end
+end
+
+local speed = 2
+function worker:update_sprite_pos()
+	local target_pos = tile_to_pos(self.tile)
+
+	for n in all({'x', 'y'}) do
+		if self.sprite_pos[n] < target_pos[n] * 8 then
+			self.sprite_pos[n] += speed
+		elseif self.sprite_pos[n] > target_pos[n] * 8 then
+			self.sprite_pos[n] -= speed
+		end
+	end
+	--[[
+	if sprite_pos.x < target_pos.x then
+		sprite_pos.x += speed
+	elseif sprite_pos.x > target_pos.x
+		sprite_pos.x -= speed
+	end
+
+	if sprite_pos.y < target_pos.y then
+		sprite_pos.y += speed
+	elseif sprite_pos.y > target_pos.y
+		sprite_pos.y -= speed
+	end
+	]]
 end
 
 -- TODO: do we need this?

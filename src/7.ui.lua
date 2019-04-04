@@ -1,4 +1,4 @@
--- 6 ui
+-- ui
 
 function update_uis()
 	for c in all(cursors) do
