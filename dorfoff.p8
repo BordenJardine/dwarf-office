@@ -55,7 +55,7 @@ function generate_workers()
 	for i=1,2 do
 		worker.create({ tile = random_spot() })
 	end
-	worker.create({ tile = 17 })
+	worker.create({ tile = 25 })
 end
 
 function generate_cursors()
@@ -65,6 +65,8 @@ function generate_cursors()
 end
 
 function _update()
+	assign_tasks()
+
 	for t in all(active_tasks) do
 		t:update()
 	end
@@ -99,7 +101,7 @@ function _draw()
 end
 
 -->8
--- helper stuff
+-- 1 helper stuff
 
 -- timer class
 timer = {
@@ -201,7 +203,7 @@ function zspr(n,w,h,dx,dy,dz,f)
 end
 
 -->8
--- map stuff
+-- 2 map stuff
 
 ui_offset = 3
 min_tile = 0
@@ -309,7 +311,7 @@ function path(start, dest, prox)
 			if (cost_so_far[next] == nil) or (new_cost < cost_so_far[next]) then
 				cost_so_far[next] = new_cost
 				if not graph[next] then
-				  printh('error node not found: ' .. next)
+					printh('error node not found: ' .. next)
 				end
 				local priority = new_cost + distance(dest, next)
 				insert(frontier, next, priority)
@@ -381,7 +383,7 @@ end
 
 
 -->8
--- worker 'class'
+-- 3 worker 'class'
 
 default_step_time = 4
 default_idle_time = 5 * 30 -- 5 seconds
@@ -392,37 +394,13 @@ heads = { 0,1,2,3,4 }
 
 bodies = { 16, 17 }
 
-skins = {
-	4, 4,
-	9,
-	-- 12,
-	-- 14,
-	15, 15
-}
+skins = { 4, 4, 9, 15, 15 }
 
-hairs = {
-	5, 5, 5,
-	4,
-	7, 7,
-	9,
-	10,
-	--14,
-}
+hairs = { 5, 5, 5, 4, 7, 7, 9, 10, }
 
-shirts = {
-	2,
-	3,
-	7,
-	7,
-	5
-}
+shirts = { 2, 3, 7, 7, 5 }
 
-ties = {
-	2,
-	8,
-	12,
-	14
-}
+ties = { 2, 8, 12, 14 }
 
 name_parts = {
 	'jor', 'eth', 'ken', 'di', 'car', 'yuk', 'ist', 'ur',
@@ -576,7 +554,7 @@ function worker:uncrowd()
 end
 
 -->8
--- furniture
+-- 4 furniture
 desk_sprite = 128
 chair_sprite = 160
 tray_sprite = 129
@@ -669,23 +647,162 @@ function draw_thing(self)
 	)
 end
 -->8
--- tasks
+-- 5 tasks
 
 unassigned_tasks = {}
 
-default_task_time = 30 * 30 -- 30 seconds
--- global timer for idle workers wandering around
+function assign_tasks()
+	for w in all(workers) do
+		if w.task == 'idle' and w.desk != nil then
+			printh('paperwork task for ' .. w.name .. ' desk tile ' .. w.desk.tile)
+			add(active_tasks, create_paperwork_task(w))
+		end
+	end
+end
 
--- socialize
+default_task_time = 15 * 30 -- 15 seconds
+copy_time = 5 * 30
+
+task = {
+	name = 'working',
+	timer = nil,
+	state = 1,
+	states = {
+		'unclaimed',
+		'init',
+		'traveling',
+		'running',
+		'complete',
+		'aborted',
+	}
+}
+function task.new(settings)
+	local t = setmetatable((settings or {}), { __index = task })
+	t.timer = timer.new(default_task_time)
+	return t
+end
+
+function task:traveling()
+end
+
+function task:running()
+end
+
+function task:update()
+	local state = self.states[self.state]
+	if state == 'unclaimed' then return end
+	self.timer:update()
+	-- call the function on this task relevant to the current state
+	state = self.states[self.state]
+	if not self[state] then
+		printh(state)
+	end
+	self[state](self)
+
+	if self.timer.done then
+		self.state = #self.states -- out of time. abort
+	end
+end
+
+function task:advance()
+	self.state += 1
+	self.timer:reset()
+end
+
+function task:complete()
+	del(active_tasks, self)
+end
+
+function task:aborted()
+	del(active_tasks, self)
+end
+
+-- paper work task
+
+default_print_time = 5 * 30 -- 5 seconds
+default_desk_time = 5 * 30 -- 5 seconds
+
+function create_paperwork_task(worker)
+	printh('paperwork for ' .. worker.name)
+	local t = task.new({
+		name = 'paperwork',
+		worker = worker,
+		init = paperwork_init,
+		travel_to_copier = travel_to_copier,
+		printing = printing,
+		print_timer = timer.new(default_print_time),
+		desk_timer = timer.new(default_desk_time),
+		travel_to_desk = travel_to_desk,
+		desking = desking,
+		complete = paperwork_complete,
+		states = {
+			'init',
+			'travel_to_copier',
+			'printing',
+			'travel_to_desk',
+			'desking',
+			-- 'travel_to_outbox',
+			'complete',
+			'aborted'
+		}
+	})
+	t:init()
+	return t
+end
+
+function paperwork_init(self)
+	self.worker.task = 'paperwork'
+	self.worker:move_to(copiers[1].tile)
+	self:advance()
+end
+
+function travel_to_copier(self)
+	if distance(self.worker.tile, copiers[1].tile) < 2 then
+		self:advance()
+	end
+end
+
+function printing(self)
+	local t = self.print_timer
+	t:update()
+	if t.done then
+		-- TODO: what if there is no desk?!
+		self.worker:move_to(self.worker.desk.tile, 1)
+		self:advance()
+	end
+end
+
+function travel_to_desk(self)
+	if distance(self.worker.tile, self.worker.desk.tile) < 1 then
+		self:advance()
+	end
+end
+
+function desking(self)
+	local t = self.desk_timer
+	t:update()
+	if t.done then
+		self:advance()
+	end
+end
+
+function paperwork_complete(self)
+	self.worker.task = 'idle'
+	printh(self.worker.name .. ' paperwork task complete!')
+	task.complete(self)
+end
+
+-- socialize task
 
 -- TODO: make this a propper class
 function create_socialize_task(a1, a2)
-	return task.new({
+	local t = task.new({
 		name = 'socializing',
 		workers = {a1, a2},
 		init = socialize_init,
 		traveling = socialize_traveling,
 		arriving = socialize_arriving,
+		complete = socialize_complete,
 		states = {
 			'init',
 			'traveling',
@@ -695,6 +812,8 @@ function create_socialize_task(a1, a2)
 			'aborted'
 		}
 	})
+	t:init()
+	return t
 end
 
 function socialize_init(self)
@@ -737,64 +856,15 @@ function socialize_arriving(self)
 	end
 end
 
--- work
-
-function create_work_task()
-	t = task.new({
-		target = nil
-	})
-	return t
-end
-
-task = {
-	name = 'working',
-	timer = nil,
-	state = 1,
-	states = {
-		'unclaimed',
-		'init',
-		'traveling',
-		'running',
-		'complete',
-		'aborted',
-	}
-}
-
-function task:traveling()
-end
-
-function task:running()
-end
-
-function task:complete()
-end
-
-function task.new(settings)
-	local t = setmetatable((settings or {}), { __index = task })
-	t.timer = timer.new(default_task_time)
-	return t
-end
-
-function task:update()
-	local state = self.states[self.state]
-	if state == 'unclaimed' then return end
-	self.timer:update()
-	if self.timer.done then
-		self.state = #self.states --abort
-		return
+function socialize_complete(self)
+	for w in all(self.workers) do
+		w.task = 'idle'
 	end
-	-- call the function on this task relevant to the current state
-	state = self.states[self.state]
-	self[state](self)
-end
-
-function task:advance()
-	self.state += 1
-	self.timer:reset()
+	task.complete(self)
 end
 
 -->8
--- ui
+-- 6 ui
 
 function update_uis()
 	for c in all(cursors) do
@@ -1020,7 +1090,7 @@ function cursor:draw()
 end
 
 -->8
--- tests
+-- 7 tests
 -- translation tests
 --[[
 printh(pos_to_tile(point(4, 0))) -- should be 4
