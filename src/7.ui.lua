@@ -1,3 +1,4 @@
+-->8
 -- ui
 
 function update_uis()
@@ -115,13 +116,15 @@ cursor_colors = {
 	15
 }
 
-scroll_throttle_time = 3
+scroll_throttle_time = 2
+
 cursor = {
 	player = 1,
 	tile = player == 1 and min_tile or max_tile,
 	selection = nil,
 	selection_index = 0,
-	scroll_timer = nil
+	scroll_timer = nil,
+	sprite_pos = nil,
 }
 function cursor.new(settings)
 	local c = setmetatable((settings or {}), { __index = cursor })
@@ -130,17 +133,36 @@ function cursor.new(settings)
 end
 
 function cursor.create(player)
+	local tile = player == 1 and min_tile or max_tile
+	local pos = tile_to_pos(tile)
 	return cursor.new({
 		player = player,
 		clr = cursor_colors[player],
-		tile = player == 1 and min_tile or max_tile,
+		tile = tile,
+		sprite_pos = point(pos.x * 8, pos.y * 8)
 	})
 end
 
 function cursor:update()
 	self:check_select()
 	self:check_move()
+	self:update_sprite_pos()
 end
+
+local speed = 2
+--TODO dry vs worker:update_sprite_pos
+function cursor:update_sprite_pos()
+	local target_pos = tile_to_pos(self.tile)
+
+	for n in all({'x', 'y'}) do
+		if self.sprite_pos[n] < target_pos[n] * 8 then
+			self.sprite_pos[n] += speed
+		elseif self.sprite_pos[n] > target_pos[n] * 8 then
+			self.sprite_pos[n] -= speed
+		end
+	end
+end
+
 
 local selectable = {'worker', 'plant', 'desk'}
 function cursor:check_select()
@@ -212,9 +234,8 @@ function cursor:check_move()
 end
 
 function cursor:draw()
-	local pos = graph[self.tile].pos
-	local x = x or (pos.x * 8)
-	local y = y or (pos.y * 8)
+	local x = self.sprite_pos.x
+	local y = self.sprite_pos.y
 	pal(11, self.clr)
 	spr(cursor_sprite, x, y)
 	if self.selection then

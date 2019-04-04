@@ -1,3 +1,4 @@
+-->8
 -- furniture
 desk_sprite = 128
 chair_sprite = 160

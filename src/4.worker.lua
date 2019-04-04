@@ -1,3 +1,4 @@
+-->8
 -- worker 'class'
 
 default_step_time = 4
@@ -169,19 +170,6 @@ function worker:update_sprite_pos()
 			self.sprite_pos[n] -= speed
 		end
 	end
-	--[[
-	if sprite_pos.x < target_pos.x then
-		sprite_pos.x += speed
-	elseif sprite_pos.x > target_pos.x
-		sprite_pos.x -= speed
-	end
-
-	if sprite_pos.y < target_pos.y then
-		sprite_pos.y += speed
-	elseif sprite_pos.y > target_pos.y
-		sprite_pos.y -= speed
-	end
-	]]
 end
 
 -- TODO: do we need this?
