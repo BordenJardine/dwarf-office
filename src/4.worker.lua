@@ -1,7 +1,7 @@
 -->8
 -- worker 'class'
 
-default_step_time = 4
+default_step_time = 5
 default_idle_time = 5 * 30 -- 5 seconds
 
 nobody_sprite = 14

@@ -6,7 +6,6 @@ unassigned_tasks = {}
 function assign_tasks()
 	for w in all(workers) do
 		if w.task == 'idle' and w.desk != nil then
-			printh('paperwork task for ' .. w.name .. ' desk tile ' .. w.desk.tile)
 			add(active_tasks, create_paperwork_task(w))
 		end
 	end
@@ -47,7 +46,7 @@ function task:update()
 	-- call the function on this task relevant to the current state
 	state = self.states[self.state]
 	if not self[state] then
-		printh(state)
+		printh(state .. ' state not found')
 	end
 	self[state](self)
 
@@ -75,7 +74,6 @@ default_print_time = 5 * 30 -- 5 seconds
 default_desk_time = 5 * 30 -- 5 seconds
 
 function create_paperwork_task(worker)
-	printh('paperwork for ' .. worker.name)
 	local t = task.new({
 		name = 'paperwork',
 		worker = worker,
@@ -143,7 +141,6 @@ end
 
 function paperwork_complete(self)
 	self.worker.task = 'idle'
-	printh(self.worker.name .. ' paperwork task complete!')
 	task.complete(self)
 end
 

@@ -5,19 +5,22 @@ DWARF OFFICE TODO
 - [x] movement
 
 - [x] worker sprite gen
-- [ ] paperwork task
+- [v] paperwork task
 - [ ] admire plant task
 - [v] socializing
 - [x] drawing furniture
 - [x] work out UI
 - [x] selecting
 	- [ ] OO cursor
+- [ ] plant life cycle
 - [ ] happiness model
+- [ ] resources
 - [ ] assigning jobs
 - [ ] assigning desks
 - [ ] building
 - [ ] emoting
-- [ ] OO timers
+- [x] OO timers
+- [ ] actual 2 player
 - [ ] redo walls?
 
 Task Manager
