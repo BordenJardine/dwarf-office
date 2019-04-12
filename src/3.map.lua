@@ -19,6 +19,19 @@ function distance(t1, t2)
 	return manhattan_distance(graph[t1].pos, graph[t2].pos)
 end
 
+function closest(source, list)
+	local closest
+	local closest_d = 999
+	for x in all(list) do
+		local d = distance(x.tile, source.tile)
+		if closest_d == nil or closest_d > d then
+			closest = x
+			closest_d = d
+		end
+	end
+	return closest
+end
+
 function get_flag(pos, flag)
 	return fget(mget(pos.x, pos.y), flag)
 end

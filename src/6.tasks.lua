@@ -5,14 +5,20 @@ unassigned_tasks = {}
 
 function assign_tasks()
 	for w in all(workers) do
-		if w.task == 'idle' and w.desk != nil then
-			add(active_tasks, create_paperwork_task(w))
+		if w.task == 'idle' then
+			local viable_tasks = {
+				create_admire_plant_task
+			}
+			if w.desk != nil then
+				add(viable_tasks, create_paperwork_task)
+			end
+			local f = sample(viable_tasks)
+			add(active_tasks, f(w))
 		end
 	end
 end
 
 default_task_time = 15 * 30 -- 15 seconds
-copy_time = 5 * 30
 
 task = {
 	name = 'working',
@@ -24,7 +30,7 @@ task = {
 		'traveling',
 		'running',
 		'complete',
-		'abort',
+		'abort'
 	}
 }
 function task.new(settings)
@@ -37,6 +43,9 @@ function task:traveling()
 end
 
 function task:running()
+	if self.timer.done then
+		self:advance()
+	end
 end
 
 function task:update()
@@ -61,6 +70,10 @@ function task:advance()
 end
 
 function task:complete()
+	printh('task complete! ' .. self.name)
+	if self.worker then
+		self.worker.task = 'idle'
+	end
 	del(active_tasks, self)
 end
 
@@ -140,7 +153,6 @@ function desking(self)
 end
 
 function paperwork_complete(self)
-	self.worker.task = 'idle'
 	task.complete(self)
 end
 
@@ -148,6 +160,37 @@ function paperwork_abort(self)
 	printh(self.name .. 'task aborted aborted by' .. self.worker.name .. '!')
 	self.worker.task = 'idle'
 	del(active_tasks, self)
+end
+
+-- admire plant task
+
+function create_admire_plant_task(worker)
+	local t = task.new({
+		name = 'admire_plant',
+		worker = worker,
+		plant = closest(worker, plants),
+		init = admire_plant_init,
+		traveling = travel_to_plant,
+		complete = admire_plant_complete,
+	})
+	t:init()
+	return t
+end
+
+function admire_plant_init(self)
+	self.worker.task = 'admire plant'
+	self.worker:move_to(self.plant.tile)
+	self:advance()
+end
+
+function travel_to_plant(self)
+	if distance(self.worker.tile, self.plant.tile) < 2 then
+		self:advance()
+	end
+end
+
+function admire_plant_complete(self)
+	task.complete(self)
 end
 
 -- socialize task
