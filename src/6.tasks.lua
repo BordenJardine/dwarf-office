@@ -18,7 +18,8 @@ function assign_tasks()
 	end
 end
 
-default_task_time = 15 * 30 -- 15 seconds
+-- default_task_time = 15 * 30 -- 15 seconds
+default_task_time = 5 * 30 -- 15 seconds
 
 task = {
 	name = 'working',

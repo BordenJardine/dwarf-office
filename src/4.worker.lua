@@ -133,6 +133,7 @@ end
 function worker:move_to(tile, prox)
 	prox = prox or 2
 	self.action = 'walking'
+	if (distance(self.tile, tile) < prox) return
 	self.path = path(self.tile, tile, prox)
 	self.path_index = #self.path
 end
