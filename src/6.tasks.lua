@@ -7,7 +7,8 @@ function assign_tasks()
 	for w in all(workers) do
 		if w.task == 'idle' then
 			local viable_tasks = {
-				create_admire_plant_task
+				create_admire_plant_task,
+				create_slack_task
 			}
 			if w.desk != nil then
 				add(viable_tasks, create_paperwork_task)
@@ -73,7 +74,7 @@ end
 function task:complete()
 	printh('task complete! ' .. self.name)
 	if self.worker then
-		self.worker.task = 'idle'
+		self.worker:idle()
 	end
 	del(active_tasks, self)
 end
@@ -260,8 +261,31 @@ end
 
 function socialize_complete(self)
 	for w in all(self.workers) do
-		w.task = 'idle'
+		w:idle()
 	end
 	task.complete(self)
 end
 
+-- slack task
+
+function create_slack_task(worker)
+	local t = task.new({
+		name = 'slack',
+		worker = worker,
+		init = slack_init,
+		states = {
+			'init',
+			'running',
+			'complete'
+		}
+	})
+	t.timer = timer.new((rnd(default_task_time) + 30))
+	t:init()
+	return t
+end
+
+function slack_init(self)
+	self.worker:idle()
+	self.worker.task = 'slack off'
+	self:advance()
+end

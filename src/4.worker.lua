@@ -2,7 +2,7 @@
 -- worker 'class'
 
 default_step_time = 5
-default_idle_time = 5 * 30 -- 5 seconds
+default_idle_time = 2 * 30 -- 2 seconds
 
 nobody_sprite = 14
 
@@ -84,12 +84,19 @@ end
 
 function worker:update_timers()
 	self.step_timer:update()
+	self.idle_timer:update()
 end
 
 function worker:update_task()
-	if self.task == 'idle' then
+	if self.task == 'idle' or self.task == 'slack off' then
 		self:update_idle()
 	end
+end
+
+function worker:idle()
+	self.task = 'idle'
+	self.action = 'idle'
+	self.idle_timer:reset()
 end
 
 function worker:update_idle()

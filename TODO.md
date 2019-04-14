@@ -6,7 +6,9 @@ DWARF OFFICE TODO
 
 - [x] worker sprite gen
 - [v] paperwork task
-- [ ] admire plant task
+- [x] admire plant task
+- [ ] slack task
+- [ ] path avoiding workers
 - [v] socializing
 - [x] drawing furniture
 - [x] work out UI
@@ -16,7 +18,7 @@ DWARF OFFICE TODO
 - [ ] happiness model
 - [ ] resources
 - [ ] assigning jobs
-- [ ] assigning desks
+- [x] assigning desks
 - [ ] building
 - [ ] emoting
 - [x] OO timers
